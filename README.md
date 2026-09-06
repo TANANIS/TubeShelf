@@ -15,6 +15,26 @@
 
 > 繁體中文簡介：TubeShelf 是一個把 YouTube 訂閱變成「自己的書架」的 Chrome / Edge 擴充套件。你可以建立群組、直接在 YouTube 裡分類頻道、隱藏干擾內容，並使用完全在本機運作的自動整理建議。
 
+## Download & install
+
+**Latest packaged version: [Download TubeShelf 1.18.0](https://github.com/TANANIS/TubeShelf/raw/refs/heads/main/outputs/TubeShelf-1.18.0.zip)**
+
+### Chrome
+
+1. Download `TubeShelf-1.18.0.zip` from the link above.
+2. Extract the ZIP file.
+3. Open `chrome://extensions/`.
+4. Enable **Developer mode**.
+5. Select **Load unpacked**.
+6. Choose the extracted folder that contains `manifest.json`.
+7. Reload any YouTube tabs that were already open.
+
+### Edge
+
+Use the same steps from `edge://extensions/`.
+
+Developers can also clone this repository and load the `extension` directory directly.
+
 ## Why TubeShelf?
 
 YouTube recommendations and YouTube subscriptions serve different purposes.
@@ -86,23 +106,6 @@ See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
 
 <img src="outputs/store-assets/screenshot-settings-en-1280x800.png" alt="TubeShelf preferences" width="900">
 
-## Install
-
-TubeShelf is currently installed by loading the extension locally.
-
-### Chrome
-
-1. Clone or download this repository.
-2. Open `chrome://extensions/`.
-3. Enable **Developer mode**.
-4. Select **Load unpacked**.
-5. Choose the `extension` directory from this repository.
-6. Reload any YouTube tabs that were already open.
-
-### Edge
-
-Use the same steps from `edge://extensions/`.
-
 ## Getting started
 
 1. Open [YouTube's subscribed channels page](https://www.youtube.com/feed/channels).
@@ -114,6 +117,16 @@ Use the same steps from `edge://extensions/`.
 7. Return to YouTube and switch shelves directly from the YouTube interface.
 
 You can also classify the channel you are currently watching from the **Groups** control beside its Subscribe button.
+
+## How local classification works
+
+TubeShelf's classifier is deliberately conservative.
+
+It scores signals such as channel descriptions, keywords, recent video titles, known topic phrases, exclusions, official YouTube categories, and vocabulary learned from manual group assignments.
+
+The highest-scoring result must also be sufficiently stronger than alternatives. Ambiguous results remain unclassified instead of being forced into a group.
+
+The UI shows classification confidence and the signals behind a suggestion so that the result can be inspected before being applied.
 
 ## Optional: YouTube Data API
 
@@ -128,16 +141,6 @@ Your API key:
 - is stored locally;
 - is not included in TubeShelf JSON exports;
 - is sent only to Google's YouTube Data API when that feature is used.
-
-## How local classification works
-
-TubeShelf's classifier is deliberately conservative.
-
-It scores signals such as channel descriptions, keywords, recent video titles, known topic phrases, exclusions, official YouTube categories, and vocabulary learned from manual group assignments.
-
-The highest-scoring result must also be sufficiently stronger than alternatives. Ambiguous results remain unclassified instead of being forced into a group.
-
-The UI shows classification confidence and the signals behind a suggestion so that the result can be inspected before being applied.
 
 ## Backup and transfer
 
@@ -187,9 +190,9 @@ YouTube is a continuously changing single-page application. TubeShelf depends on
 
 Subscription discovery may automatically scroll YouTube's subscribed-channels page until the list stabilizes. Classification quality also depends on the public metadata available for each channel; uncertain results intentionally remain unclassified.
 
-## Project status
+## Project principles
 
-TubeShelf is under active development and currently focuses on three principles:
+TubeShelf currently focuses on three principles:
 
 1. **User control over recommendation-driven behavior.**
 2. **Local-first organization and privacy.**
