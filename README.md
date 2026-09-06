@@ -1,38 +1,175 @@
-# TubeShelf｜自己的 YouTube 訂閱整理器
+# TubeShelf
 
-TubeShelf 是一個可自行側載的 Chrome／Edge 擴充套件，功能概念來自 PocketTube，但程式與介面都是獨立製作。它不需要帳號、伺服器或付費方案，群組與頻道資料只保存在瀏覽器的 `chrome.storage.local`。
+<p align="center">
+  <img src="outputs/store-assets/small-promo-440x280.png" alt="TubeShelf" width="440">
+</p>
 
-<img src="outputs/store-assets/small-promo-440x280.png" alt="TubeShelf 宣傳圖" width="440">
+<p align="center">
+  <strong>Your YouTube subscriptions, organized your way.</strong><br>
+  A local-first Chrome / Edge extension for organizing subscriptions, reducing distractions, and getting explainable auto-grouping suggestions.
+</p>
 
-## 安裝到 Chrome
+<p align="center">
+  No account · No server · No telemetry · No cloud AI
+</p>
 
-1. 開啟 `chrome://extensions/`。
-2. 打開右上角「開發人員模式」。
-3. 按「載入未封裝項目」。
-4. 選擇本專案的 `extension` 資料夾。
-5. 重新整理已經開啟的 YouTube 分頁。
+> 繁體中文簡介：TubeShelf 是一個把 YouTube 訂閱變成「自己的書架」的 Chrome / Edge 擴充套件。你可以建立群組、直接在 YouTube 裡分類頻道、隱藏干擾內容，並使用完全在本機運作的自動整理建議。
 
-Edge 的步驟相同，管理頁網址是 `edge://extensions/`。
+## Why TubeShelf?
 
+YouTube recommendations and YouTube subscriptions serve different purposes.
 
-<img src="outputs/store-assets/screenshot-library-1280x800.png" alt="TubeShelf 管理中心書架" width="800">
+TubeShelf keeps those two experiences separate: your Home page can remain driven by YouTube's recommendation algorithm, while your Subscriptions page becomes a space you organize yourself.
 
-## 第一次使用
+Instead of replacing YouTube, TubeShelf adds a lightweight organization layer directly into it.
 
-1. 到 [YouTube 所有訂閱內容](https://www.youtube.com/feed/channels)。
-2. 點瀏覽器工具列上的 TubeShelf，再按「更新訂閱內容」。TubeShelf 會開啟所有訂閱頻道頁、自動向下載入並在完成後關閉。
-3. 點「管理群組」，可手動建立群組，或另外啟動「自動整理群組（本機）」取得分類建議。
-4. 檢查並勾選建議後按「套用建議」；不確定的頻道會保留在待分類。
-5. 回到 YouTube，直接從左側欄或訂閱頁頂部切換群組。
-6. 在頻道首頁或影片觀看頁，可直接使用訂閱按鈕旁的「分類」選單調整目前頻道。
+## What you can do
 
-### 選用：加入 YouTube 官方分類
+### Organize subscriptions your way
 
-在 Google Cloud 專案啟用 YouTube Data API v3 並建立 API Key，接著到 TubeShelf「偏好設定」貼上 Key。之後更新頻道資料或執行自動整理時，TubeShelf 會把公開的 channel ID／video ID 傳送給 Google，取得頻道主題與影片類別；未設定時則完全使用本機字典。API Key 只存於 `chrome.storage.local` 的獨立欄位，不會跟著備份匯出。
+- Create custom groups with your own names, colors, and icons.
+- Put the same channel in multiple groups.
+- Switch groups directly from YouTube's sidebar or Subscriptions page.
+- Classify a channel beside the Subscribe button on channel and watch pages.
+- Newly subscribed channels can enter **Unclassified** automatically; unsubscribed channels are removed from TubeShelf automatically.
 
-<img src="outputs/store-assets/screenshot-settings-en-1280x800.png" alt="TubeShelf 偏好設定（English）" width="800">
+### Reduce recommendation-driven distractions
 
-## 驗證
+TubeShelf lets you independently choose whether to:
+
+- block the YouTube Home page and redirect to Subscriptions;
+- hide Shorts and its navigation entry;
+- hide the recommendation sidebar on watch pages;
+- disable autoplay;
+- hide already-watched videos from your subscription feed.
+
+These controls are separate from subscription groups, so you can keep as much or as little of the original YouTube experience as you want.
+
+### Auto-organize locally
+
+TubeShelf can suggest groups for unclassified channels without sending your subscription library to a cloud AI service.
+
+Suggestions can use:
+
+- channel names and public descriptions;
+- channel keywords;
+- recurring topics from recent video titles;
+- a built-in multilingual topic dictionary;
+- optional public YouTube topic/category metadata;
+- vocabulary learned from your own manual corrections.
+
+Low-confidence or conflicting results stay unclassified. Suggestions are shown before anything changes, and existing manual groups are never overwritten automatically.
+
+### Private by default
+
+TubeShelf stores your groups, channels, preferences, and learned classifications in `chrome.storage.local`.
+
+There is:
+
+- no TubeShelf account;
+- no TubeShelf server;
+- no telemetry or analytics;
+- no advertising profile;
+- no cloud AI classification.
+
+If you optionally add your own YouTube Data API key, TubeShelf sends public channel/video IDs directly to Google's YouTube Data API to retrieve public metadata. The key stays on your device and is excluded from JSON backups.
+
+See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
+
+## Screenshots
+
+### Subscription shelf
+
+<img src="outputs/store-assets/screenshot-library-1280x800.png" alt="TubeShelf subscription shelf" width="900">
+
+### Preferences
+
+<img src="outputs/store-assets/screenshot-settings-en-1280x800.png" alt="TubeShelf preferences" width="900">
+
+## Install
+
+TubeShelf is currently installed by loading the extension locally.
+
+### Chrome
+
+1. Clone or download this repository.
+2. Open `chrome://extensions/`.
+3. Enable **Developer mode**.
+4. Select **Load unpacked**.
+5. Choose the `extension` directory from this repository.
+6. Reload any YouTube tabs that were already open.
+
+### Edge
+
+Use the same steps from `edge://extensions/`.
+
+## Getting started
+
+1. Open [YouTube's subscribed channels page](https://www.youtube.com/feed/channels).
+2. Open TubeShelf from the browser toolbar and choose **Update subscriptions**.
+3. TubeShelf will load your subscribed channels and save the collected public channel information locally.
+4. Open **Manage groups**.
+5. Create groups manually, or run **Auto-organize groups (local)** for suggestions.
+6. Review the suggestions and apply only the groups you want.
+7. Return to YouTube and switch shelves directly from the YouTube interface.
+
+You can also classify the channel you are currently watching from the **Groups** control beside its Subscribe button.
+
+## Optional: YouTube Data API
+
+TubeShelf works without an API key.
+
+If you want additional public classification signals, you can enable **YouTube Data API v3** in your own Google Cloud project and paste your API key into TubeShelf Preferences.
+
+When enabled, TubeShelf can use public YouTube channel topics, video categories, and related metadata alongside the local classifier.
+
+Your API key:
+
+- is stored locally;
+- is not included in TubeShelf JSON exports;
+- is sent only to Google's YouTube Data API when that feature is used.
+
+## How local classification works
+
+TubeShelf's classifier is deliberately conservative.
+
+It scores signals such as channel descriptions, keywords, recent video titles, known topic phrases, exclusions, official YouTube categories, and vocabulary learned from manual group assignments.
+
+The highest-scoring result must also be sufficiently stronger than alternatives. Ambiguous results remain unclassified instead of being forced into a group.
+
+The UI shows classification confidence and the signals behind a suggestion so that the result can be inspected before being applied.
+
+## Backup and transfer
+
+TubeShelf can export and import your local library as JSON.
+
+Exports include your groups and channel URLs. Sensitive values such as your YouTube Data API key are not included.
+
+You can also clear TubeShelf's local data without changing your actual YouTube subscriptions.
+
+## Languages
+
+TubeShelf currently supports:
+
+- English
+- 繁體中文
+
+The default interface is English unless a Traditional Chinese browser locale is detected. Changing the UI language does not rename your channels or custom groups.
+
+## Technical notes
+
+- Chrome Extension Manifest V3
+- Vanilla JavaScript, HTML, and CSS
+- Local state stored with `chrome.storage.local`
+- Incremental YouTube DOM observation instead of repeatedly rescanning the entire page
+- Background tabs pause DOM observation to reduce unnecessary work
+- Supports multiple generations of YouTube video/channel renderers
+- JSON backup and restore
+- Node.js unit tests plus Playwright UI smoke tests
+
+## Development and verification
+
+Core checks can be run with Node.js:
 
 ```powershell
 node --test tests/shared.test.js
@@ -42,56 +179,28 @@ node --check extension/popup/popup.js
 node --check extension/dashboard/dashboard.js
 ```
 
-## 限制
+The repository also includes UI smoke tests for the dashboard, onboarding flow, popup, group management, localization, and YouTube-integrated controls.
 
-YouTube 是動態載入頁面，TubeShelf 會自動捲動「所有訂閱內容」直到清單穩定。自動整理會綜合頻道名稱、公開簡介、關鍵詞與最多 20 支近期影片標題；不確定或同分的頻道仍不會強制分類。YouTube 若日後改版其頁面資料結構，掃描與公開資料讀取方式可能需要跟著調整。
+## Current limitations
 
-TubeShelf 與 PocketTube、YouTube 或 Google 沒有從屬或授權關係；這是供個人使用的獨立實作。
+YouTube is a continuously changing single-page application. TubeShelf depends on public page structure and public metadata, so future YouTube UI changes may occasionally require selector or parser updates.
 
-## 已完成的功能
+Subscription discovery may automatically scroll YouTube's subscribed-channels page until the list stabilizes. Classification quality also depends on the public metadata available for each channel; uncertain results intentionally remain unclassified.
 
-- 把 TubeShelf 群組直接加入 YouTube 左側導覽列
-- 明確區分「首頁推薦」與「訂閱內容」：預設保留 YouTube 首頁演算法，只有訂閱內容套用 TubeShelf 群組與畫面整理
-- 可選擇封鎖首頁；開啟後造訪 YouTube 首頁會直接跳至訂閱內容，TubeShelf 與 YouTube 左側的首頁入口也會隱藏
-- 可在所有 YouTube 頁面關閉 Shorts，並同步隱藏 YouTube 左側 Shorts 入口
-- 可在觀看頁隱藏右側推薦欄 `#secondary`；隱藏右欄時預設一併關閉自動播放，之後仍可單獨調整
-- 從首頁、搜尋或其他 YouTube 頁面點群組時，會先前往訂閱內容再套用群組
-- 在訂閱頁頂部直接切換群組；工具列只留一顆齒輪，點擊後直接開啟完整 TubeShelf 面板
-- 在頻道首頁或影片觀看頁的訂閱按鈕旁顯示「分類」，並支援 YouTube 新版頻道頁 Header，可直接勾選這個頻道所屬的群組
-- 在頁面上按下訂閱後會自動加入 TubeShelf 的「未分類」；取消訂閱後會同步移除頻道、群組成員關係與本機學習標記
-- 介面可在偏好設定切換繁體中文／English；預設英文，偵測到中文瀏覽器語系時使用繁中，管理中心、彈出視窗、YouTube 內嵌介面、動態提示與新手教學皆支援雙語
-- 已觀看影片篩選同時辨識 YouTube 新舊版縮圖進度元件
-- DOM 監聽只處理換頁、導覽與新加入的影片卡片，背景分頁會暫停監聽以降低資源占用
-- 「更新訂閱內容」會自動開啟所有訂閱頻道頁、捲動載入到底並在完成後關閉
-- 更新完成後，已開啟的管理中心會即時重新載入本機資料，不必手動重新整理書架
-- 第一次開啟管理中心會顯示可跳過的新手教學，依序引導訂閱更新、自動整理、手動管理與偏好設定；清除本機資料後會再次出現
-- 偏好設定的標題、說明與勾選控制已放大，長時間整理大量頻道時更容易閱讀
-- 「自動整理群組（本機）」與訂閱更新完全分離，只分析尚未分類的頻道
-- 自動整理會先判斷遊戲開發、消費科技、動畫製作、影劇評論、料理、餐廳與健身等細粒度標籤，再映射到使用者看到的群組
-- 分類會綜合明確詞組、排除詞、跨影片重複訊號與分數差距；低信心或衝突結果會保留在未分類
-- 手動加入或移出群組會形成只存在本機的個人詞彙樣本；至少兩個人工樣本後才會參與後續建議
-- 可在設定頁選填 YouTube Data API Key，加入官方頻道主題、近期影片類別與公開標籤；Key 獨立儲存且不包含在 JSON 備份
-- 自動整理結果會分別統計高／中／低信心、本機字典、YouTube 官方訊號與個人詞彙來源
-- 套用建議前不會修改群組，也不會覆寫既有的手動分類
-- 管理中心與 YouTube 介面都有固定的「未分類」入口，可直接查看尚待整理的頻道
-- 近期影片中的重複主題會累積分類權重，並支援娛樂、財經、運動、汽機車與寵物等更多領域
-- dashboard 點選群組後，頻道表只顯示該群組的真正成員；「全部頻道」與「未分類」則各自顯示對應集合
-- 群組清單與頻道表改為獨立卡片，頻道較少時不再被群組清單撐出大面積空白
-- 選擇自訂群組後可進入「管理成員」，一次查看全部頻道、逐一切換，或批次加入／移出搜尋結果
-- 提供明確的「編輯群組」入口，可修改名稱、圖示與顏色；也能把目前群組的成員及本機學習標記合併到另一群組，或安全刪除群組並保留頻道資料
-- 頻道區改為類似 Windows 檔案總管「中圖示」的格狀卡片，直接以勾選狀態管理群組成員
-- 頻道面板高度會依卡片數量、群組面板與視窗空間動態調整；頻道多時延伸對齊，頻道少時維持內容高度
-- 可獨立更新全部、未分類或目前群組的公開頻道資料，也能在頻道詳細資料中單獨更新
-- 新版會保存 YouTube channel ID，並以 RSS 補抓近期影片標題；更新資料不會自動修改群組
-- 點擊頻道列可檢視完整資料、直接調整所屬群組，並查看本機分類判斷、信心與命中依據
-- 排除 YouTube 頁面的通用樣板關鍵詞，避免大量頻道因「可拍照的手機」被誤判成科技
-- 若初始頻道頁沒有影片清單，會改從該頻道的 YouTube RSS 取得近期標題
-- YouTube 尚未載入側欄時，才顯示右下角備援按鈕
-- 從「所有訂閱內容」或訂閱動態頁掃描頻道
-- 建立自訂群組，設定顏色與圖示
-- 同一個頻道可放入多個群組
-- 在 YouTube 訂閱內容頁依群組篩選可見頻道／影片
-- 在所有 YouTube 頁面隱藏 Shorts；已觀看影片篩選則只作用於訂閱內容
-- 搜尋頻道、JSON 備份與還原
-- 全程本機儲存，沒有追蹤、雲端 AI 或雲端同步
+## Project status
 
+TubeShelf is under active development and currently focuses on three principles:
+
+1. **User control over recommendation-driven behavior.**
+2. **Local-first organization and privacy.**
+3. **Automation that stays inspectable and reversible.**
+
+## License
+
+TubeShelf is released under the [MIT License](LICENSE).
+
+## Disclaimer
+
+TubeShelf is an independent project and is not affiliated with, endorsed by, or sponsored by YouTube, Google, or PocketTube.
+
+The original feature concept was inspired by subscription-management tools such as PocketTube, while TubeShelf's implementation, interface, local classifier, and product direction are independently developed.
