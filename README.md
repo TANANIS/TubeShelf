@@ -4,6 +4,47 @@ TubeShelf 是一個可自行側載的 Chrome／Edge 擴充套件，功能概念�
 
 <img src="outputs/store-assets/small-promo-440x280.png" alt="TubeShelf 宣傳圖" width="440">
 
+## 安裝到 Chrome
+
+1. 開啟 `chrome://extensions/`。
+2. 打開右上角「開發人員模式」。
+3. 按「載入未封裝項目」。
+4. 選擇本專案的 `extension` 資料夾。
+5. 重新整理已經開啟的 YouTube 分頁。
+
+Edge 的步驟相同，管理頁網址是 `edge://extensions/`。
+
+## 第一次使用
+
+1. 到 [YouTube 所有訂閱內容](https://www.youtube.com/feed/channels)。
+2. 點瀏覽器工具列上的 TubeShelf，再按「更新訂閱內容」。TubeShelf 會開啟所有訂閱頻道頁、自動向下載入並在完成後關閉。
+3. 點「管理群組」，可手動建立群組，或另外啟動「自動整理群組（本機）」取得分類建議。
+4. 檢查並勾選建議後按「套用建議」；不確定的頻道會保留在待分類。
+5. 回到 YouTube，直接從左側欄或訂閱頁頂部切換群組。
+6. 在頻道首頁或影片觀看頁，可直接使用訂閱按鈕旁的「分類」選單調整目前頻道。
+
+### 選用：加入 YouTube 官方分類
+
+在 Google Cloud 專案啟用 YouTube Data API v3 並建立 API Key，接著到 TubeShelf「偏好設定」貼上 Key。之後更新頻道資料或執行自動整理時，TubeShelf 會把公開的 channel ID／video ID 傳送給 Google，取得頻道主題與影片類別；未設定時則完全使用本機字典。API Key 只存於 `chrome.storage.local` 的獨立欄位，不會跟著備份匯出。
+
+<img src="outputs/store-assets/screenshot-settings-en-1280x800.png" alt="TubeShelf 偏好設定（English）" width="800">
+
+## 驗證
+
+```powershell
+node --test tests/shared.test.js
+node --check extension/shared.js
+node --check extension/content/content.js
+node --check extension/popup/popup.js
+node --check extension/dashboard/dashboard.js
+```
+
+## 限制
+
+YouTube 是動態載入頁面，TubeShelf 會自動捲動「所有訂閱內容」直到清單穩定。自動整理會綜合頻道名稱、公開簡介、關鍵詞與最多 20 支近期影片標題；不確定或同分的頻道仍不會強制分類。YouTube 若日後改版其頁面資料結構，掃描與公開資料讀取方式可能需要跟著調整。
+
+TubeShelf 與 PocketTube、YouTube 或 Google 沒有從屬或授權關係；這是供個人使用的獨立實作。
+
 ## 已完成的功能
 
 - 把 TubeShelf 群組直接加入 YouTube 左側導覽列
@@ -52,44 +93,3 @@ TubeShelf 是一個可自行側載的 Chrome／Edge 擴充套件，功能概念�
 - 全程本機儲存，沒有追蹤、雲端 AI 或雲端同步
 
 <img src="outputs/store-assets/screenshot-library-1280x800.png" alt="TubeShelf 管理中心書架" width="800">
-
-## 安裝到 Chrome
-
-1. 開啟 `chrome://extensions/`。
-2. 打開右上角「開發人員模式」。
-3. 按「載入未封裝項目」。
-4. 選擇本專案的 `extension` 資料夾。
-5. 重新整理已經開啟的 YouTube 分頁。
-
-Edge 的步驟相同，管理頁網址是 `edge://extensions/`。
-
-## 第一次使用
-
-1. 到 [YouTube 所有訂閱內容](https://www.youtube.com/feed/channels)。
-2. 點瀏覽器工具列上的 TubeShelf，再按「更新訂閱內容」。TubeShelf 會開啟所有訂閱頻道頁、自動向下載入並在完成後關閉。
-3. 點「管理群組」，可手動建立群組，或另外啟動「自動整理群組（本機）」取得分類建議。
-4. 檢查並勾選建議後按「套用建議」；不確定的頻道會保留在待分類。
-5. 回到 YouTube，直接從左側欄或訂閱頁頂部切換群組。
-6. 在頻道首頁或影片觀看頁，可直接使用訂閱按鈕旁的「分類」選單調整目前頻道。
-
-### 選用：加入 YouTube 官方分類
-
-在 Google Cloud 專案啟用 YouTube Data API v3 並建立 API Key，接著到 TubeShelf「偏好設定」貼上 Key。之後更新頻道資料或執行自動整理時，TubeShelf 會把公開的 channel ID／video ID 傳送給 Google，取得頻道主題與影片類別；未設定時則完全使用本機字典。API Key 只存於 `chrome.storage.local` 的獨立欄位，不會跟著備份匯出。
-
-<img src="outputs/store-assets/screenshot-settings-en-1280x800.png" alt="TubeShelf 偏好設定（English）" width="800">
-
-## 驗證
-
-```powershell
-node --test tests/shared.test.js
-node --check extension/shared.js
-node --check extension/content/content.js
-node --check extension/popup/popup.js
-node --check extension/dashboard/dashboard.js
-```
-
-## 限制
-
-YouTube 是動態載入頁面，TubeShelf 會自動捲動「所有訂閱內容」直到清單穩定。自動整理會綜合頻道名稱、公開簡介、關鍵詞與最多 20 支近期影片標題；不確定或同分的頻道仍不會強制分類。YouTube 若日後改版其頁面資料結構，掃描與公開資料讀取方式可能需要跟著調整。
-
-TubeShelf 與 PocketTube、YouTube 或 Google 沒有從屬或授權關係；這是供個人使用的獨立實作。
