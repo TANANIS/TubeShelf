@@ -14,6 +14,9 @@ TubeShelf 是一個可自行側載的 Chrome／Edge 擴充套件，功能概念�
 
 Edge 的步驟相同，管理頁網址是 `edge://extensions/`。
 
+
+<img src="outputs/store-assets/screenshot-library-1280x800.png" alt="TubeShelf 管理中心書架" width="800">
+
 ## 第一次使用
 
 1. 到 [YouTube 所有訂閱內容](https://www.youtube.com/feed/channels)。
@@ -92,4 +95,3 @@ TubeShelf 與 PocketTube、YouTube 或 Google 沒有從屬或授權關係；這�
 - 搜尋頻道、JSON 備份與還原
 - 全程本機儲存，沒有追蹤、雲端 AI 或雲端同步
 
-<img src="outputs/store-assets/screenshot-library-1280x800.png" alt="TubeShelf 管理中心書架" width="800">
