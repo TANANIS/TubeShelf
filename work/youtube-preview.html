@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TubeShelf YouTube 整合預覽</title>
+    <style>
+      * { box-sizing: border-box; } body { margin: 0; color: #f1f1f1; background: #0f0f0f; font: 14px Arial,sans-serif; }
+      header { height: 64px; display: flex; align-items: center; gap: 24px; padding: 0 24px; border-bottom: 1px solid #272727; position: sticky; top: 0; background: #0f0f0f; }
+      .yt-logo { font-size: 19px; font-weight: 750; } .yt-logo b { color: #ff0033; margin-right: 5px; }
+      .search { width: min(540px,50vw); margin: auto; padding: 11px 18px; border: 1px solid #343434; border-radius: 99px; color: #888; }
+      .layout { display:grid; grid-template-columns: 220px 1fr; } ytd-guide-renderer { padding: 20px 14px; color:#aaa; } .native-link { padding:12px; border-radius:10px; } .native-link:nth-child(3) { color:#fff; background:#272727; }
+      ytd-browse { display:block; padding: 32px; } h1 { margin:0 0 24px; font-size:24px; } .grid { display:grid; grid-template-columns:repeat(3,minmax(180px,1fr)); gap:22px 16px; }
+      ytd-rich-item-renderer { display:block; } .thumb { aspect-ratio:16/9; border-radius:12px; background:linear-gradient(135deg,#39334d,#26232c); } ytd-rich-item-renderer:nth-child(2) .thumb { background:linear-gradient(135deg,#563746,#2b2429); } ytd-rich-item-renderer:nth-child(3) .thumb { background:linear-gradient(135deg,#274c4a,#202b2a); }
+      .video-meta { display:flex; gap:10px; padding-top:11px; } .avatar { width:36px;height:36px;border-radius:50%;background:#574d78; } .video-meta strong,.video-meta a {display:block;} .video-meta a {margin-top:4px;color:#aaa;text-decoration:none;font-size:12px;}
+    </style>
+    <link rel="stylesheet" href="/extension/content/content.css" />
+  </head>
+  <body>
+    <header><div class="yt-logo"><b>▶</b>YouTube</div><div class="search">搜尋</div><div>建立　⌁　●</div></header>
+    <div class="layout"><ytd-guide-renderer><div id="sections"><div><div class="native-link">首頁</div><div class="native-link">Shorts</div><div class="native-link">訂閱內容</div><div class="native-link">你的內容</div></div></div></ytd-guide-renderer><ytd-browse page-subtype="subscriptions"><div id="primary"><h1>最新訂閱影片</h1><div id="contents" class="grid">
+      <ytd-rich-item-renderer><div class="thumb"></div><div class="video-meta"><span class="avatar"></span><div><strong>宇宙裡最奇怪的天體</strong><a id="channel-name" href="/@kurzgesagt">Kurzgesagt</a></div></div></ytd-rich-item-renderer>
+      <ytd-rich-item-renderer><div class="thumb"></div><div class="video-meta"><span class="avatar"></span><div><strong>一天的 Lofi 音樂</strong><a id="channel-name" href="/@lofigirl">Lofi Girl</a></div></div></ytd-rich-item-renderer>
+      <ytd-rich-item-renderer><div class="thumb"></div><div class="video-meta"><span class="avatar"></span><div><strong>遊戲如何教會玩家</strong><a id="channel-name" href="/@gamemakers">Game Maker's Toolkit</a></div></div></ytd-rich-item-renderer>
+    </div></div></ytd-browse></div>
+    <script>
+      const demoState = {version:1,channels:{"/@kurzgesagt":{id:"/@kurzgesagt",name:"Kurzgesagt"},"/@lofigirl":{id:"/@lofigirl",name:"Lofi Girl"},"/@gamemakers":{id:"/@gamemakers",name:"Game Maker's Toolkit"}},groups:[{id:"learning",name:"學習",icon:"book",color:"#7c5cff",channelIds:["/@kurzgesagt"]},{id:"relax",name:"放鬆",icon:"music",color:"#ff6b8a",channelIds:["/@lofigirl"]},{id:"games",name:"遊戲設計",icon:"game",color:"#2dbd9b",channelIds:["/@gamemakers"]}],settings:{hideShorts:false,hideWatched:false,compactMode:false}};
+      window.chrome={storage:{local:{get:async()=>({tubeShelfState:demoState}),set:async()=>{}},onChanged:{addListener:()=>{}}},runtime:{sendMessage:()=>{},onMessage:{addListener:()=>{}}}};
+    </script>
+    <script src="/extension/shared.js"></script><script src="/extension/content/content.js"></script>
+  </body>
+</html>

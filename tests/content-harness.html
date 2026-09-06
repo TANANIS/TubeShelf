@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <base href="/">
+    <style>
+      body { margin: 40px; color: #f1f1f1; background: #0f0f0f; font-family: Arial, sans-serif; }
+      yt-page-header-view-model, .ytPageHeaderViewModelHeadlineInfo, yt-flexible-actions-view-model { display: block; }
+      yt-flexible-actions-view-model { display: flex; align-items: center; gap: 10px; }
+      .ytFlexibleActionsViewModelAction { display: block; }
+      button { min-width: 90px; height: 40px; }
+    </style>
+    <script>
+      history.replaceState({}, "", "/@mattsgamenight");
+      const listeners = [];
+      globalThis.chrome = {
+        storage: {
+          local: {
+            get: async () => ({ tubeShelfState: {
+              version: 11,
+              groups: [
+                { id: "gaming", name: "Gaming", icon: "game", color: "#2dbd9b", channelIds: ["/@mattsgamenight"] },
+                { id: "learning", name: "Learning", icon: "book", color: "#7c5cff", channelIds: [] }
+              ],
+              channels: { "/@mattsgamenight": { id: "/@mattsgamenight", name: "Matt's Game Night", url: "https://www.youtube.com/@mattsgamenight" } },
+              manualLabels: {},
+              settings: { blockHome: false, hideShorts: false, hideSecondary: false, disableAutoplay: false, hideWatched: false, compactMode: false, onboardingComplete: true, language: "en" }
+            } }),
+            set: async () => {}
+          },
+          onChanged: { addListener: (listener) => listeners.push(listener) }
+        },
+        runtime: {
+          sendMessage: async () => ({ ok: true }),
+          onMessage: { addListener: () => {} }
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <yt-page-header-view-model>
+      <a href="/@mattsgamenight"><h1>Matt's Game Night</h1></a>
+      <div class="ytPageHeaderViewModelHeadlineInfo">
+        <yt-flexible-actions-view-model>
+          <div class="ytFlexibleActionsViewModelAction">
+            <yt-subscribe-button-view-model subscribed><button aria-label="Unsubscribe from Matt's Game Night">Subscribed</button></yt-subscribe-button-view-model>
+          </div>
+          <div class="ytFlexibleActionsViewModelAction"><button>Join</button></div>
+        </yt-flexible-actions-view-model>
+      </div>
+    </yt-page-header-view-model>
+    <script src="/extension/shared.js"></script>
+    <script src="/extension/content/content.js"></script>
+  </body>
+</html>

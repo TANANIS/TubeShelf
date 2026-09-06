@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TubeShelf 管理中心</title>
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"><svg viewBox="0 0 24 24" width="23" height="23" fill="white"><path d="M5 5.8A2.8 2.8 0 0 1 7.8 3H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7.8A2.8 2.8 0 0 1 5 16.2V5.8Zm6 4.2v6l5-3-5-3Z"/></svg></div>
+          <div><strong>TubeShelf</strong><span>本機訂閱整理</span></div>
+        </div>
+        <nav>
+          <button class="nav-item active" data-view="library" type="button"><span>▦</span>我的書架</button>
+          <button class="nav-item" data-view="settings" type="button"><span>⌁</span>偏好設定</button>
+        </nav>
+        <div class="privacy-note"><span>●</span><div><strong>只存在這台裝置</strong><small>不會上傳你的訂閱與群組</small></div></div>
+      </aside>
+
+      <main class="main">
+        <header class="page-header">
+          <div><p class="eyebrow">MY LIBRARY</p><h1>訂閱書架</h1><p>把頻道放進不同群組，回到 YouTube 就能一鍵篩選。</p></div>
+          <div class="header-actions">
+            <button id="open-home" class="button ghost" type="button">首頁推薦</button>
+            <button id="open-youtube" class="button ghost" type="button">訂閱內容</button>
+            <button id="update-subscriptions" class="button ghost" type="button">更新訂閱內容</button>
+            <button id="auto-organize" class="button smart" type="button">✦ 自動整理群組（本機）</button>
+            <button id="new-group" class="button primary" type="button">＋ 新增群組</button>
+          </div>
+        </header>
+
+        <section id="library-view">
+          <div class="stats">
+            <article><span>已收集頻道</span><strong id="stat-channels">0</strong><small>掃描 YouTube 頁面後會出現在這裡</small></article>
+            <article><span>自訂群組</span><strong id="stat-groups">0</strong><small>同一頻道可放進多個群組</small></article>
+            <article class="accent-stat"><span>整理進度</span><strong id="stat-progress">0%</strong><small id="stat-unfiled">尚無待分類頻道</small></article>
+          </div>
+
+          <div class="workspace">
+            <section class="group-pane">
+              <div class="pane-title"><div><span>群組</span><small>選擇一個書架</small></div><button id="mini-add" type="button" aria-label="新增群組">＋</button></div>
+              <div id="group-list" class="group-list"></div>
+            </section>
+
+            <section class="channel-pane">
+              <div class="channel-toolbar">
+                <div><h2 id="selected-title">全部頻道</h2><p id="selected-subtitle">管理已收集的訂閱頻道</p></div>
+                <div class="channel-tools">
+                  <div id="group-actions" class="group-actions" hidden>
+                    <button id="edit-selected-group" class="button ghost compact" type="button">編輯群組</button>
+                    <button id="manage-members" class="button smart compact" type="button">管理成員</button>
+                  </div>
+                  <button id="refresh-profiles" class="button ghost compact" type="button">更新頻道資料</button>
+                  <label class="search"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10.5 4a6.5 6.5 0 1 0 4 11.6l4.7 4.7 1.1-1.1-4.7-4.7A6.5 6.5 0 0 0 10.5 4Zm0 1.7a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6Z"/></svg><input id="search" type="search" placeholder="搜尋這個群組" /></label>
+                </div>
+              </div>
+              <div id="member-manager" class="member-manager" hidden>
+                <div><strong id="member-count">0 / 0</strong><span>個頻道已加入</span></div>
+                <div class="member-bulk-actions">
+                  <button id="add-filtered" class="button ghost compact" type="button">加入目前結果</button>
+                  <button id="remove-filtered" class="button ghost compact" type="button">移出目前結果</button>
+                </div>
+              </div>
+              <div id="channel-list" class="channel-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="settings-view" hidden>
+          <div class="settings-grid">
+            <article class="settings-card"><div><h2>減少 YouTube 干擾</h2><p>以下設定套用到所有 YouTube 頁面，與訂閱群組分類互相獨立。</p></div><div class="setting-list">
+              <label class="setting-row"><span><strong>封鎖首頁推薦</strong><small>進入首頁時跳到訂閱內容，並隱藏所有首頁入口。</small></span><input type="checkbox" data-setting="blockHome" /></label>
+              <label class="setting-row"><span><strong>關閉 Shorts</strong><small>封鎖 Shorts 頁面，並隱藏左側入口與短影音內容。</small></span><input type="checkbox" data-setting="hideShorts" /></label>
+              <label class="setting-row"><span><strong>隱藏影片右側欄</strong><small>點開影片後隱藏右側推薦內容（#secondary），並放大主要內容空間。</small></span><input type="checkbox" data-setting="hideSecondary" /></label>
+              <label class="setting-row"><span><strong>關閉自動播放</strong><small>隱藏影片右側欄時會預設一併開啟，之後仍可單獨調整。</small></span><input type="checkbox" data-setting="disableAutoplay" /></label>
+            </div></article>
+            <article class="settings-card"><div><h2>訂閱內容畫面整理</h2><p>只套用在 YouTube 訂閱內容，不會拿來分類首頁推薦。</p></div><div class="setting-list"><label class="setting-row"><span><strong>隱藏已觀看影片</strong><small>支援 YouTube 新舊版縮圖觀看進度標記。</small></span><input type="checkbox" data-setting="hideWatched" /></label></div></article>
+            <article class="settings-card language-card"><div><h2>介面語言</h2><p>選擇 TubeShelf 的顯示語言。群組與頻道名稱不會被改寫。</p></div><label class="language-control"><span class="sr-only">介面語言</span><select id="language-select" aria-label="介面語言"><option value="zh-TW">繁體中文</option><option value="en">English</option></select></label></article>
+            <article class="settings-card api-card"><div><h2>YouTube 官方分類（選用）</h2><p>填入自己的 YouTube Data API Key 後，自動整理會讀取公開頻道主題與近期影片類別。Key 只存在本機，不會放進 JSON 備份。</p><small id="youtube-api-status" class="api-status">尚未設定，仍會使用完整的本機字典。</small></div><div class="api-key-control"><input id="youtube-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="貼上 API Key" aria-label="YouTube Data API Key"><div><button id="save-youtube-api-key" class="button primary compact" type="button">儲存 Key</button><button id="clear-youtube-api-key" class="button ghost compact" type="button">清除</button></div></div></article>
+            <article class="settings-card"><div><h2>備份與搬移</h2><p>匯出檔包含群組與頻道網址，不含觀看紀錄。</p></div><div class="backup-actions"><button id="export" class="button ghost" type="button">匯出 JSON</button><button id="import" class="button ghost" type="button">匯入 JSON</button><input id="import-file" type="file" accept="application/json" hidden /></div></article>
+            <article class="settings-card danger-card"><div><h2>重新開始</h2><p>清除 TubeShelf 儲存的頻道與群組，不會取消 YouTube 訂閱。</p></div><button id="reset" class="button danger" type="button">清除本機資料</button></article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="group-dialog">
+      <form method="dialog" id="group-form">
+        <div class="dialog-head"><div><span class="eyebrow">COLLECTION</span><h2 id="dialog-title">新增群組</h2></div><button type="button" data-dialog-close class="close" aria-label="關閉">×</button></div>
+        <label class="field">群組名稱<input id="group-name" maxlength="40" required placeholder="例如：遊戲精華" /></label>
+        <fieldset><legend>圖示</legend><div id="icon-options" class="icon-options"></div></fieldset>
+        <fieldset><legend>顏色</legend><div id="color-options" class="color-options"></div></fieldset>
+        <input id="group-id" type="hidden" />
+        <section id="merge-group-section" class="merge-group-section" hidden>
+          <div><strong>合併到其他群組</strong><small>將這個群組的頻道搬到目標群組，完成後刪除目前群組。</small></div>
+          <div class="merge-group-control">
+            <label><span class="sr-only">選擇目標群組</span><select id="merge-group-target" aria-label="選擇目標群組"></select></label>
+            <button id="merge-group" type="button" class="button ghost">合併到…</button>
+          </div>
+          <p id="merge-group-empty" hidden>至少要有另一個群組才能合併。</p>
+        </section>
+        <div class="dialog-actions"><button id="delete-group" type="button" class="button danger dialog-delete" hidden>刪除群組</button><button type="button" data-dialog-close class="button ghost">取消</button><button id="save-group" type="submit" class="button primary">儲存群組</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="auto-dialog" class="auto-dialog">
+      <div class="auto-shell">
+        <div class="dialog-head">
+          <div><span class="eyebrow">LOCAL ORGANIZER</span><h2>自動整理群組</h2></div>
+          <button type="button" id="auto-close" class="close" aria-label="關閉">×</button>
+        </div>
+        <div id="auto-intro" class="auto-step">
+          <div class="auto-hero">✦</div>
+          <h3>只分析尚未分類的頻道</h3>
+          <p>TubeShelf 會讀取公開頻道簡介與近期影片，透過細分類字典、重複主題與你之後的手動修正產生建議；若已設定 YouTube API Key，也會加入官方分類。既有群組不會被覆寫。</p>
+          <div class="auto-facts"><span>不使用雲端 AI</span><span>低信心保留未分類</span><span>確認後才套用</span></div>
+        </div>
+        <div id="auto-progress" class="auto-step" hidden>
+          <div class="progress-ring"><span id="auto-percent">0%</span></div>
+          <h3 id="auto-progress-title">正在準備本機分析</h3>
+          <p id="auto-progress-copy">檢查已儲存的頻道資料…</p>
+          <div class="progress-track"><span id="auto-progress-bar"></span></div>
+        </div>
+        <div id="auto-results" class="auto-step" hidden>
+          <div class="result-summary"><div><strong id="auto-result-count">0</strong><span>個頻道有分類建議</span></div><p id="auto-uncertain-count"></p></div>
+          <div id="auto-confidence-summary" class="confidence-summary"></div>
+          <div id="auto-suggestion-list" class="suggestion-list"></div>
+          <p class="result-note">取消勾選不想建立的群組。只有按下「套用建議」才會修改群組。</p>
+        </div>
+        <div class="dialog-actions auto-actions">
+          <button id="auto-cancel" type="button" class="button ghost">取消</button>
+          <button id="auto-start" type="button" class="button smart">開始本機分析</button>
+          <button id="auto-apply" type="button" class="button primary" hidden>套用建議</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="channel-dialog" class="channel-dialog">
+      <div class="detail-shell">
+        <div class="dialog-head">
+          <div><span class="eyebrow">CHANNEL DETAIL</span><h2>頻道詳細資料</h2></div>
+          <button type="button" id="detail-close" class="close" aria-label="關閉">×</button>
+        </div>
+        <div class="detail-profile">
+          <span id="detail-avatar" class="detail-avatar"></span>
+          <div><h3 id="detail-name"></h3><p id="detail-id"></p></div>
+          <div class="detail-actions"><button id="detail-refresh" type="button" class="button ghost">更新資料</button><button id="detail-open" type="button" class="button ghost">在 YouTube 開啟 ↗</button></div>
+        </div>
+        <div class="detail-grid">
+          <section><span class="detail-label">目前所屬群組</span><div id="detail-groups" class="detail-values"></div></section>
+          <section id="detail-suggestion-card"><span class="detail-label">分類判斷</span><div id="detail-suggestion" class="detail-values"></div><div id="detail-tags" class="detail-tags"></div><small id="detail-reasons"></small></section>
+        </div>
+        <section class="detail-section"><span class="detail-label">頻道簡介</span><p id="detail-description"></p></section>
+        <section class="detail-section"><span class="detail-label">近期影片標題</span><ul id="detail-titles" class="detail-titles"></ul></section>
+      </div>
+    </dialog>
+
+    <div id="onboarding" class="onboarding" hidden>
+      <div class="onboarding-shade"></div>
+      <section class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <header class="onboarding-head">
+          <span id="onboarding-progress">新手教學</span>
+          <button id="onboarding-skip" type="button">跳過教學</button>
+        </header>
+        <div id="onboarding-icon" class="onboarding-icon">✦</div>
+        <h2 id="onboarding-title"></h2>
+        <p id="onboarding-copy"></p>
+        <p id="onboarding-status" class="onboarding-status" hidden></p>
+        <div id="onboarding-dots" class="onboarding-dots" aria-hidden="true"></div>
+        <footer class="onboarding-actions">
+          <button id="onboarding-back" class="button ghost" type="button">上一步</button>
+          <button id="onboarding-next" class="button primary" type="button">下一步</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+    <script src="../shared.js"></script>
+    <script src="dashboard.js"></script>
+  </body>
+</html>
