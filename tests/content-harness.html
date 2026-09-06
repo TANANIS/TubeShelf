@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <base href="/">
+    <link rel="canonical" href="https://www.youtube.com/channel/UCMattsCanonical">
     <style>
       body { margin: 40px; color: #f1f1f1; background: #0f0f0f; font-family: Arial, sans-serif; }
       yt-page-header-view-model, .ytPageHeaderViewModelHeadlineInfo, yt-flexible-actions-view-model { display: block; }
@@ -13,25 +14,36 @@
     <script>
       history.replaceState({}, "", "/@mattsgamenight");
       const listeners = [];
+      let storedState = {
+        version: 14,
+        revision: 0,
+        groups: [
+          { id: "gaming", name: "Gaming", icon: "game", color: "#2dbd9b", channelIds: ["/channel/ucmattscanonical"] },
+          { id: "learning", name: "Learning", icon: "book", color: "#7c5cff", channelIds: [] }
+        ],
+        channels: {
+          "/@mattsgamenight": { id: "/@mattsgamenight", name: "Matt's Game Night", url: "https://www.youtube.com/@mattsgamenight" },
+          "/channel/ucmattscanonical": { id: "/channel/ucmattscanonical", name: "Matt's Game Night", url: "https://www.youtube.com/channel/UCMattsCanonical" }
+        },
+        manualLabels: {},
+        settings: { blockHome: false, hideShorts: false, hideSecondary: false, disableAutoplay: false, hideWatched: false, compactMode: false, onboardingComplete: true, language: "en" }
+      };
+      globalThis.__getStoredState = () => structuredClone(storedState);
       globalThis.chrome = {
         storage: {
           local: {
-            get: async () => ({ tubeShelfState: {
-              version: 11,
-              groups: [
-                { id: "gaming", name: "Gaming", icon: "game", color: "#2dbd9b", channelIds: ["/@mattsgamenight"] },
-                { id: "learning", name: "Learning", icon: "book", color: "#7c5cff", channelIds: [] }
-              ],
-              channels: { "/@mattsgamenight": { id: "/@mattsgamenight", name: "Matt's Game Night", url: "https://www.youtube.com/@mattsgamenight" } },
-              manualLabels: {},
-              settings: { blockHome: false, hideShorts: false, hideSecondary: false, disableAutoplay: false, hideWatched: false, compactMode: false, onboardingComplete: true, language: "en" }
-            } }),
+            get: async () => ({ tubeShelfState: storedState }),
             set: async () => {}
           },
           onChanged: { addListener: (listener) => listeners.push(listener) }
         },
         runtime: {
-          sendMessage: async () => ({ ok: true }),
+          sendMessage: async (message) => {
+            if (message.type !== "TUBESHELF_MUTATE") return { ok: true };
+            storedState = TubeShelfCore.applyStateOperation(storedState, message.operation);
+            storedState.revision += 1;
+            return { ok: true, state: TubeShelfCore.normalizeState(storedState) };
+          },
           onMessage: { addListener: () => {} }
         }
       };

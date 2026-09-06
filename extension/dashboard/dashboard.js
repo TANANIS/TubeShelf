@@ -21,9 +21,9 @@
   const api = location.protocol === "chrome-extension:" && globalThis.chrome?.storage?.local
     ? {
         load: async () => (await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY],
-        save: (value) => chrome.storage.local.set({ [STORAGE_KEY]: value }),
+        mutate: (operation) => chrome.runtime.sendMessage({ type: "TUBESHELF_MUTATE", operation }),
         loadSecret: async () => String((await chrome.storage.local.get(API_KEY_STORAGE))[API_KEY_STORAGE] || ""),
-        saveSecret: (value) => chrome.storage.local.set({ [API_KEY_STORAGE]: String(value || "") }),
+        saveSecret: (value) => chrome.runtime.sendMessage({ type: "TUBESHELF_SET_API_KEY", value: String(value || "") }),
         open: (url) => chrome.tabs.create({ url }),
         onChange: (callback) => chrome.storage.onChanged.addListener(callback)
       }
@@ -46,7 +46,12 @@
           ],
           settings: { ...defaults.settings, language: previewLanguage ? Core.languageCode(previewLanguage) : defaults.settings.language, onboardingComplete: new URLSearchParams(location.search).get("tour") !== "1" }
         }); },
-        save: async () => {}, loadSecret: async () => "", saveSecret: async () => {}, open: (url) => window.open(url, "_blank"), onChange: () => {}
+        mutate: async (operation) => {
+          const next = Core.applyStateOperation(state, operation);
+          next.revision = state.revision + 1;
+          return { ok: true, state: Core.normalizeState(next) };
+        },
+        loadSecret: async () => "", saveSecret: async () => ({ ok: true }), open: (url) => window.open(url, "_blank"), onChange: () => {}
       };
 
   const $ = (id) => document.getElementById(id);
@@ -59,11 +64,23 @@
     Core.localizeDom(root, currentLanguage());
   }
 
-  async function save(next, message) {
-    state = Core.normalizeState(next);
-    await api.save(state);
-    render();
+  function acceptState(next, force = false) {
+    const incoming = Core.normalizeState(next);
+    if (!force && incoming.revision <= state.revision) return false;
+    state = incoming;
+    if (!["all", "unfiled"].includes(selectedGroupId) && !state.groups.some((group) => group.id === selectedGroupId)) {
+      selectedGroupId = "all";
+      managingMembers = false;
+    }
+    return true;
+  }
+
+  async function commit(operation, message) {
+    const result = await api.mutate(operation);
+    if (!result?.ok) throw Object.assign(new Error(result?.error || "State update failed"), { code: result?.code });
+    if (acceptState(result.state)) render();
     if (message) toast(message);
+    return state;
   }
 
   function render() {
@@ -81,6 +98,20 @@
     $("open-home").hidden = Boolean(state.settings.blockHome);
     renderApiStatus();
     localize();
+    const detailDialog = $("channel-dialog");
+    if (detailDialog?.open) {
+      const channelId = $("detail-open").dataset.channelId;
+      if (state.channels[channelId]) openChannelDetail(channelId);
+      else detailDialog.close();
+    }
+    const groupDialog = $("group-dialog");
+    if (groupDialog?.open && $("group-id").value && !state.groups.some((group) => group.id === $("group-id").value)) groupDialog.close();
+    if ($("auto-dialog")?.open && !$("auto-results")?.hidden && !autoController) {
+      const unchecked = new Set([...document.querySelectorAll("[data-auto-group]:not(:checked)")].map((input) => input.dataset.autoGroup));
+      autoSuggestions = Core.buildAutoGroupSuggestions(state);
+      renderAutoResults();
+      document.querySelectorAll("[data-auto-group]").forEach((input) => { if (unchecked.has(input.dataset.autoGroup)) input.checked = false; });
+    }
   }
 
   function renderApiStatus() {
@@ -138,6 +169,13 @@
     const selected = state.groups.find((group) => group.id === selectedGroupId);
     const unfiled = new Set(Core.unfiledChannelIds(state));
     const selectedIds = selected && !managingMembers ? new Set(selected.channelIds) : null;
+    const membershipsByChannel = new Map();
+    for (const group of state.groups) {
+      for (const channelId of group.channelIds) {
+        if (!membershipsByChannel.has(channelId)) membershipsByChannel.set(channelId, []);
+        membershipsByChannel.get(channelId).push(group);
+      }
+    }
     $("selected-title").textContent = managingMembers && selected ? `管理「${selected.name}」成員` : isUnfiled ? "未分類" : selected?.name || "全部頻道";
     $("selected-subtitle").textContent = managingMembers && selected ? "查看全部頻道並用開關加入或移出；也可以一次處理目前搜尋結果" : isUnfiled ? "等待手動加入群組，或使用本機自動整理" : selected ? "只顯示這個群組的頻道；點擊頻道可調整分類" : "查看所有已從 YouTube 收集的頻道";
     $("group-actions").hidden = !selected;
@@ -173,7 +211,7 @@
       return;
     }
     $("channel-list").innerHTML = channels.map((channel) => {
-      const memberships = Core.groupForChannel(state, channel.id);
+      const memberships = membershipsByChannel.get(channel.id) || [];
       const avatar = channel.avatar ? `<img src="${escapeHtml(channel.avatar)}" alt="" referrerpolicy="no-referrer" />` : escapeHtml(channel.name.slice(0, 1).toUpperCase());
       const chips = memberships.length ? `${memberships.slice(0, 1).map((group) => `<span class="chip" style="color:${group.color};background:${group.color}17">${escapeHtml(group.name)}</span>`).join("")}${memberships.length > 1 ? `<span class="chip">+${memberships.length - 1}</span>` : ""}` : '<span class="unfiled">尚未分類</span>';
       const control = selected
@@ -404,7 +442,7 @@
 
   async function refreshProfiles() {
     if (profileController) { profileController.abort(); return; }
-    const targets = profileScopeChannels();
+    const targets = profileScopeChannels().map((channel) => structuredClone(channel));
     if (!targets.length) { toast("目前沒有頻道可更新"); return; }
     if (targets.length >= 50 && !confirm(t(`要更新 ${targets.length} 個頻道的公開資料嗎？可以隨時按「停止更新」。`))) return;
     profileController = new AbortController();
@@ -421,8 +459,8 @@
         while (cursor < targets.length && !controller.signal.aborted) {
           const channel = targets[cursor++];
           try {
-            Object.assign(state.channels[channel.id], await fetchChannelProfile(channel, controller.signal));
-            if (state.channels[channel.id].recentTitles?.length) withTitles += 1;
+            Object.assign(channel, await fetchChannelProfile(channel, controller.signal));
+            if (channel.recentTitles?.length) withTitles += 1;
           } catch (error) {
             if (error.name !== "AbortError") failed += 1;
           }
@@ -437,8 +475,7 @@
         try { await enrichOfficialMetadata(targets, controller.signal); }
         catch (error) { if (error.name !== "AbortError") officialError = error.message || "官方分類讀取失敗"; }
       }
-      await api.save(state);
-      render();
+      await commit({ type: "patch-channels", payload: { updates: targets.map((channel) => ({ id: channel.id, patch: channel })) } });
       toast(controller.signal.aborted ? `已停止；保留 ${done} 個更新結果` : officialError ? `本機資料已更新；官方分類失敗：${officialError}` : `更新完成：${withTitles} 個取得影片標題${failed ? `，${failed} 個讀取失敗` : ""}`);
     } finally {
       if (profileController === controller) profileController = null;
@@ -468,8 +505,8 @@
     const suggestedCount = autoSuggestions.groups.reduce((sum, group) => sum + group.channelIds.length, 0);
     const stats = autoSuggestions.stats || { high: 0, medium: 0, low: 0, official: 0, personal: 0, dictionary: 0 };
     $("auto-result-count").textContent = suggestedCount;
-    $("auto-uncertain-count").textContent = autoSuggestions.uncertain.length ? `${autoSuggestions.uncertain.length} 個頻道因資訊不足、低信心或衝突而保留待分類` : "所有待分類頻道都有中高信心建議";
-    $("auto-confidence-summary").innerHTML = `<span>高信心 <strong>${stats.high}</strong></span><span>中信心 <strong>${stats.medium}</strong></span><span>低信心保留 <strong>${stats.low}</strong></span><span>本機字典 <strong>${stats.dictionary}</strong></span><span>YouTube 官方訊號 <strong>${stats.official}</strong></span><span>個人詞彙 <strong>${stats.personal}</strong></span>`;
+    $("auto-uncertain-count").textContent = autoSuggestions.uncertain.length ? `${autoSuggestions.uncertain.length} 個頻道因資訊不足或分類衝突而保留待分類` : "所有待分類頻道都有分類建議";
+    $("auto-confidence-summary").innerHTML = `<span>高信心 <strong>${stats.high}</strong></span><span>中信心 <strong>${stats.medium}</strong></span><span>低信心建議 <strong>${stats.low}</strong></span><span>本機字典 <strong>${stats.dictionary}</strong></span><span>YouTube 官方訊號 <strong>${stats.official}</strong></span><span>個人詞彙 <strong>${stats.personal}</strong></span>`;
     $("auto-suggestion-list").innerHTML = autoSuggestions.groups.length
       ? autoSuggestions.groups.map((group) => {
           const english = currentLanguage() === "en";
@@ -478,7 +515,8 @@
           const high = group.channels.filter((channel) => channel.confidence === "high").length;
           const medium = group.channels.filter((channel) => channel.confidence === "medium").length;
           const tags = [...new Set(group.channels.flatMap((channel) => channel.tags || []))].slice(0, 3).join(english ? ", " : "／");
-          const confidence = english ? `High ${high} · Medium ${medium}` : `高 ${high}・中 ${medium}`;
+          const low = group.channels.filter((channel) => channel.confidence === "low").length;
+          const confidence = english ? `High ${high} · Medium ${medium} · Low ${low}` : `高 ${high}・中 ${medium}・低 ${low}`;
           return `<label class="suggestion-card"><input type="checkbox" data-auto-group="${escapeHtml(group.groupId)}" checked><span class="suggestion-icon" style="color:${group.color};background:${group.color}1b">${Core.iconSvg(group.icon, "currentColor", 17)}</span><span class="suggestion-copy"><strong>${escapeHtml(group.name)} <span class="confidence">${confidence}</span></strong><small>${escapeHtml(sample)}${group.channels.length > 4 ? "…" : ""}${tags ? `${english ? "  Tags: " : "　標籤："}${escapeHtml(tags)}` : ""}${reasons ? `${english ? "  Based on: " : "　依據："}${escapeHtml(reasons)}` : ""}</small></span><span class="suggestion-count">${group.channelIds.length}</span></label>`;
         }).join("")
       : `<div class="empty-state"><strong>目前沒有足夠明確的分類建議</strong><p>既有群組不會受到影響；資訊不足的頻道會繼續留在待分類。</p></div>`;
@@ -488,7 +526,7 @@
 
   async function startAutoOrganize() {
     const unfiledIds = new Set(Core.unfiledChannelIds(state));
-    const unfiled = Object.values(state.channels).filter((channel) => unfiledIds.has(channel.id));
+    const unfiled = Object.values(state.channels).filter((channel) => unfiledIds.has(channel.id)).map((channel) => structuredClone(channel));
     if (!unfiled.length) { toast(Object.keys(state.channels).length ? "目前沒有尚未分類的頻道" : "請先更新訂閱內容"); return; }
     autoController = new AbortController();
     showAutoStep("progress");
@@ -502,14 +540,17 @@
       const workers = Array.from({ length: Math.min(3, targets.length) }, async () => {
         while (cursor < targets.length && !autoController.signal.aborted) {
           const channel = targets[cursor++];
-          try { Object.assign(state.channels[channel.id], await fetchChannelProfile(channel, autoController.signal)); }
+          try { Object.assign(channel, await fetchChannelProfile(channel, autoController.signal)); }
           catch (error) { if (error.name !== "AbortError") failed += 1; }
           done += 1;
           updateAutoProgress(done, targets.length, channel.name);
         }
       });
       await Promise.all(workers);
-      if (autoController.signal.aborted) { await api.save(state); return; }
+      if (autoController.signal.aborted) {
+        await commit({ type: "patch-channels", payload: { updates: unfiled.map((channel) => ({ id: channel.id, patch: channel })) } });
+        return;
+      }
       let officialError = "";
       const officialTargets = unfiled.filter((channel) => !channel.officialProfiledAt || channel.officialProfiledAt < staleBefore);
       if (youtubeApiKey && officialTargets.length) {
@@ -526,7 +567,7 @@
           if (error.name !== "AbortError") officialError = error.message || "官方分類讀取失敗";
         }
       }
-      await api.save(state);
+      await commit({ type: "patch-channels", payload: { updates: unfiled.map((channel) => ({ id: channel.id, patch: channel })) } });
       updateAutoProgress(targets.length, targets.length, "");
       autoSuggestions = Core.buildAutoGroupSuggestions(state);
       renderAutoResults();
@@ -639,9 +680,7 @@
     onboardingWaitingForAuto = false;
     clearOnboardingTarget();
     $("onboarding").hidden = true;
-    state.settings.onboardingComplete = true;
-    state = Core.normalizeState(state);
-    await api.save(state);
+    await commit({ type: "set-onboarding-complete", payload: { complete: true } });
     setDashboardView("library");
     toast(message);
   }
@@ -689,8 +728,7 @@
     const group = state.groups.find((item) => item.id === selectedGroupId);
     if (id && group) {
       const enabled = !group.channelIds.includes(id);
-      state = Core.recordManualMembership(state, id, group.id, enabled);
-      await save(state, enabled ? `已加入「${group.name}」，並記住這次修正` : `已移出「${group.name}」`);
+      await commit({ type: "toggle-membership", payload: { channelId: id, groupId: group.id, enabled } }, enabled ? `已加入「${group.name}」，並記住這次修正` : `已移出「${group.name}」`);
       return;
     }
     if (event.target.closest("a, button, input, select")) return;
@@ -723,15 +761,14 @@
     const changedIds = matchingIds.filter((id) => add ? !existing.has(id) : existing.has(id));
     if (!changedIds.length) { toast(add ? "目前結果都已在群組中" : "目前結果都不在群組中"); return; }
     if ((!add || changedIds.length >= 20) && !confirm(t(`要把 ${changedIds.length} 個頻道${add ? "加入" : "移出"}「${group.name}」嗎？`))) return;
-    changedIds.forEach((id) => { state = Core.recordManualMembership(state, id, group.id, add); });
-    await save(state, add ? `已加入 ${changedIds.length} 個頻道` : `已移出 ${changedIds.length} 個頻道`);
+    await commit({ type: "bulk-membership", payload: { channelIds: changedIds, groupId: group.id, enabled: add } }, add ? `已加入 ${changedIds.length} 個頻道` : `已移出 ${changedIds.length} 個頻道`);
   }
   $("add-filtered").addEventListener("click", () => updateFilteredMembership(true));
   $("remove-filtered").addEventListener("click", () => updateFilteredMembership(false));
   $("detail-close").addEventListener("click", () => $("channel-dialog").close());
   $("detail-refresh").addEventListener("click", async () => {
     const channelId = $("detail-open").dataset.channelId;
-    const channel = state.channels[channelId];
+    const channel = state.channels[channelId] ? structuredClone(state.channels[channelId]) : null;
     if (!channel) return;
     const button = $("detail-refresh");
     button.disabled = true;
@@ -743,8 +780,7 @@
         try { await enrichOfficialMetadata([channel]); }
         catch (error) { officialError = error.message || "官方分類讀取失敗"; }
       }
-      await api.save(state);
-      render();
+      await commit({ type: "patch-channels", payload: { updates: [{ id: channel.id, patch: channel }] } });
       openChannelDetail(channelId);
       toast(officialError ? `本機資料已更新；${officialError}` : channel.recentTitles?.length ? `已取得 ${channel.recentTitles.length} 部近期影片` : "已更新資料，但頻道沒有可讀取的近期影片");
     } catch (_error) {
@@ -761,8 +797,7 @@
     const group = state.groups.find((item) => item.id === input.dataset.detailGroup);
     const channelId = input.dataset.detailChannel;
     if (!group || !state.channels[channelId]) return;
-    state = Core.recordManualMembership(state, channelId, group.id, input.checked);
-    await save(state, input.checked ? `已加入「${group.name}」，並記住這次修正` : `已移出「${group.name}」`);
+    await commit({ type: "toggle-membership", payload: { channelId, groupId: group.id, enabled: input.checked } }, input.checked ? `已加入「${group.name}」，並記住這次修正` : `已移出「${group.name}」`);
     openChannelDetail(channelId);
   });
   [$("new-group"), $("mini-add")].forEach((button) => button.addEventListener("click", () => openDialog()));
@@ -775,14 +810,8 @@
     const id = $("group-id").value;
     const icon = new FormData(event.currentTarget).get("icon") || "star";
     const color = new FormData(event.currentTarget).get("color") || COLORS[0];
-    if (id) {
-      const group = state.groups.find((item) => item.id === id);
-      if (group) Object.assign(group, { name, icon, color });
-    } else {
-      state.groups.push({ id: Core.createId(name, state.groups.map((item) => item.id)), name, icon, color, channelIds: [] });
-    }
     $("group-dialog").close();
-    await save(state, id ? "群組已更新" : "群組已建立");
+    await commit({ type: "save-group", payload: { id, name, icon, color } }, id ? "群組已更新" : "群組已建立");
   });
   $("merge-group").addEventListener("click", async () => {
     const sourceId = $("group-id").value;
@@ -792,21 +821,19 @@
     if (!source || !target || source.id === target.id) return;
     const prompt = `要將「${source.name}」的 ${source.channelIds.length} 個頻道合併到「${target.name}」嗎？來源群組會被刪除。`;
     if (!confirm(t(prompt))) return;
-    state = Core.mergeGroups(state, source.id, target.id);
     selectedGroupId = target.id;
     managingMembers = false;
     $("group-dialog").close();
-    await save(state, "群組已合併");
+    await commit({ type: "merge-groups", payload: { sourceGroupId: source.id, targetGroupId: target.id } }, "群組已合併");
   });
   $("delete-group").addEventListener("click", async () => {
     const id = $("group-id").value;
     const group = state.groups.find((item) => item.id === id);
     if (!group || !confirm(t(`要刪除「${group.name}」嗎？其中 ${group.channelIds.length} 個頻道只會回到未分類，不會取消訂閱。`))) return;
-    state.groups = state.groups.filter((item) => item.id !== id);
     selectedGroupId = "all";
     managingMembers = false;
     $("group-dialog").close();
-    await save(state, "群組已刪除；頻道資料仍保留");
+    await commit({ type: "delete-group", payload: { groupId: id } }, "群組已刪除；頻道資料仍保留");
   });
   $("open-home").addEventListener("click", () => api.open("https://www.youtube.com/"));
   $("open-youtube").addEventListener("click", () => api.open("https://www.youtube.com/feed/subscriptions"));
@@ -832,30 +859,32 @@
     const selected = new Set([...document.querySelectorAll("[data-auto-group]:checked")].map((input) => input.dataset.autoGroup));
     const groups = autoSuggestions.groups.filter((group) => selected.has(group.groupId));
     if (!groups.length) { toast("請至少選擇一個分類建議"); return; }
-    const count = groups.reduce((sum, group) => sum + group.channelIds.length, 0);
-    await save(Core.applyAutoGroupSuggestions(state, groups), `已整理 ${count} 個頻道`);
+    const beforeCount = Core.unfiledChannelIds(state).length;
+    await commit({ type: "apply-auto-suggestions", payload: { groups } });
+    toast(`已整理 ${Math.max(0, beforeCount - Core.unfiledChannelIds(state).length)} 個頻道`);
     $("auto-dialog").close();
   });
   document.querySelectorAll("[data-setting]").forEach((input) => input.addEventListener("change", async () => {
-    state.settings = Core.settingsAfterToggle(state.settings, input.dataset.setting, input.checked);
-    await save(state, input.dataset.setting === "hideSecondary" && input.checked ? "已隱藏影片右側欄，並關閉自動播放" : "設定已儲存");
+    await commit({ type: "set-setting", payload: { setting: input.dataset.setting, enabled: input.checked } }, input.dataset.setting === "hideSecondary" && input.checked ? "已隱藏影片右側欄，並關閉自動播放" : "設定已儲存");
   }));
   $("language-select").addEventListener("change", async (event) => {
-    state.settings.language = Core.languageCode(event.target.value);
-    await save(state, state.settings.language === "en" ? "Language changed to English" : "介面語言已切換為繁體中文");
+    const language = Core.languageCode(event.target.value);
+    await commit({ type: "set-language", payload: { language } }, language === "en" ? "Language changed to English" : "介面語言已切換為繁體中文");
   });
   $("save-youtube-api-key").addEventListener("click", async () => {
     const value = $("youtube-api-key").value.trim();
     if (value.length < 20) { toast("請輸入有效的 YouTube Data API Key"); return; }
     youtubeApiKey = value;
-    await api.saveSecret(value);
+    const result = await api.saveSecret(value);
+    if (!result?.ok) throw new Error(result?.error || "Could not save API key");
     $("youtube-api-key").value = "";
     renderApiStatus();
     toast("API Key 已儲存在本機，且不會匯出到備份");
   });
   $("clear-youtube-api-key").addEventListener("click", async () => {
     youtubeApiKey = "";
-    await api.saveSecret("");
+    const result = await api.saveSecret("");
+    if (!result?.ok) throw new Error(result?.error || "Could not clear API key");
     $("youtube-api-key").value = "";
     renderApiStatus();
     toast("YouTube API Key 已清除");
@@ -871,7 +900,7 @@
   $("import-file").addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    try { await save(JSON.parse(await file.text()), "備份已匯入"); }
+    try { await commit({ type: "replace-state", payload: { state: JSON.parse(await file.text()) } }, "備份已匯入"); }
     catch (_error) { toast("這不是有效的 TubeShelf 備份"); }
     event.target.value = "";
   });
@@ -879,7 +908,7 @@
     if (!confirm(t("要清除 TubeShelf 的本機群組與已收集頻道嗎？這不會取消 YouTube 訂閱。"))) return;
     selectedGroupId = "all";
     managingMembers = false;
-    await save(Core.defaultState(), "本機資料已清除");
+    await commit({ type: "reset-state" }, "本機資料已清除");
     startOnboarding();
   });
 
@@ -899,8 +928,7 @@
       renderApiStatus();
     }
     if (changes[STORAGE_KEY]?.newValue) {
-      state = Core.normalizeState(changes[STORAGE_KEY].newValue);
-      render();
+      if (acceptState(changes[STORAGE_KEY].newValue)) render();
       if (onboardingStep === 1 && onboardingWaitingForScan && Object.keys(state.channels).length) {
         onboardingWaitingForScan = false;
         onboardingStep = 2;
@@ -917,8 +945,7 @@
     }
     if (scan.state === "complete") {
       api.load().then((latest) => {
-        state = Core.normalizeState(latest);
-        render();
+        if (acceptState(latest)) render();
         if (onboardingStep === 1 && onboardingWaitingForScan) {
           onboardingWaitingForScan = false;
           onboardingStep = 2;
@@ -938,7 +965,7 @@
 
   (async function init() {
     const [savedState, savedApiKey] = await Promise.all([api.load(), api.loadSecret()]);
-    state = Core.normalizeState(savedState);
+    acceptState(savedState, true);
     youtubeApiKey = savedApiKey;
     render();
     if (!state.settings.onboardingComplete) setTimeout(startOnboarding, 180);

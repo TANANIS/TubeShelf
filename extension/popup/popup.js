@@ -36,6 +36,12 @@
       };
 
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+  function acceptState(next, force = false) {
+    const incoming = Core.normalizeState(next);
+    if (!force && incoming.revision <= state.revision) return false;
+    state = incoming;
+    return true;
+  }
   function localize(root = document) {
     const language = Core.languageCode(state.settings?.language);
     document.documentElement.lang = language === "en" ? "en" : "zh-Hant";
@@ -105,13 +111,15 @@
 
   extensionApi.onChange((changes, area) => {
     if (area === "local" && changes[STORAGE_KEY]) {
-      state = Core.normalizeState(changes[STORAGE_KEY].newValue);
-      render();
+      if (acceptState(changes[STORAGE_KEY].newValue)) {
+        render();
+        renderTab();
+      }
     }
   });
 
   (async function init() {
-    state = Core.normalizeState(await extensionApi.getState());
+    acceptState(await extensionApi.getState(), true);
     activeTab = await extensionApi.activeTab();
     render();
     renderTab();

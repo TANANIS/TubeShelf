@@ -17,6 +17,8 @@
   let pendingStructureRefresh = false;
   let trackedSubscription = { channelId: "", subscribed: null };
   let subscriptionSyncTimer = null;
+  const scanIdentityByAlias = new Map();
+  const IDENTITY_BRIDGE_SOURCE = "tubeshelf-identity-bridge";
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -29,6 +31,25 @@
     const filed = new Set(state.groups.flatMap((group) => group.channelIds));
     return Object.keys(state.channels).filter((id) => !filed.has(id));
   }
+
+  function registerScanIdentity(channelId, alias) {
+    const stableId = String(channelId || "").trim();
+    const aliasKey = Core.channelKey(String(alias || ""));
+    if (!/^UC[A-Za-z0-9_-]{20,}$/.test(stableId) || !aliasKey) return;
+    const canonicalAlias = Core.channelKey(`/channel/${stableId}`);
+    const identity = { channelId: stableId, aliases: [...new Set([aliasKey, canonicalAlias].filter(Boolean))] };
+    identity.aliases.forEach((key) => scanIdentityByAlias.set(key, identity));
+  }
+
+  function enrichChannelIdentity(channel) {
+    const identity = scanIdentityByAlias.get(Core.channelKey(channel?.url || channel?.id));
+    return identity ? { ...channel, channelId: identity.channelId, aliases: identity.aliases } : channel;
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== location.origin || event.data?.source !== IDENTITY_BRIDGE_SOURCE || event.data?.type !== "CHANNEL_IDENTITY") return;
+    registerScanIdentity(event.data.channelId, event.data.alias);
+  });
 
   function canonicalCard(element) {
     let card = element instanceof Element ? element.closest(VIDEO_CARD_SELECTOR) : null;
@@ -59,7 +80,10 @@
       location.assign(Core.subscriptionGroupUrl(groupId));
       return false;
     }
-    activeGroupId = groupId || "all";
+    activeGroupId = validGroupId(groupId) ? groupId : "all";
+    const url = new URL(location.href);
+    url.hash = `tubeshelf-group=${encodeURIComponent(activeGroupId)}`;
+    history.replaceState(history.state, "", url);
     renderGroups();
     renderIntegratedControls();
     applyFilters();
@@ -68,28 +92,75 @@
 
   async function readState() {
     const result = await chrome.storage.local.get(STORAGE_KEY);
-    state = Core.normalizeState(result[STORAGE_KEY]);
+    acceptState(result[STORAGE_KEY], true);
     return state;
   }
 
-  async function writeState(next) {
-    state = Core.normalizeState(next);
-    await chrome.storage.local.set({ [STORAGE_KEY]: state });
+  function validGroupId(groupId) {
+    return ["all", "unfiled"].includes(groupId) || state.groups.some((group) => group.id === groupId);
+  }
+
+  function syncActiveGroupFromLocation() {
+    if (!isSubscriptionsPage()) return;
+    const requested = new URLSearchParams(location.hash.replace(/^#/, "")).get("tubeshelf-group") || "all";
+    activeGroupId = validGroupId(requested) ? requested : "all";
+    if (requested !== activeGroupId) {
+      const url = new URL(location.href);
+      url.hash = `tubeshelf-group=${encodeURIComponent(activeGroupId)}`;
+      history.replaceState(history.state, "", url);
+    }
+  }
+
+  function acceptState(next, force = false) {
+    const incoming = Core.normalizeState(next);
+    if (!force && incoming.revision <= state.revision) return false;
+    state = incoming;
+    if (!validGroupId(activeGroupId)) {
+      activeGroupId = "all";
+      if (isSubscriptionsPage()) {
+        const url = new URL(location.href);
+        url.hash = "tubeshelf-group=all";
+        history.replaceState(history.state, "", url);
+      }
+    }
+    return true;
+  }
+
+  function refreshFromState() {
     renderGroups();
     renderIntegratedControls();
     renderCurrentChannelControl();
     applyFilters();
   }
 
+  async function commit(operation) {
+    const result = await chrome.runtime.sendMessage({ type: "TUBESHELF_MUTATE", operation });
+    if (!result?.ok) throw Object.assign(new Error(result?.error || "State update failed"), { code: result?.code });
+    if (acceptState(result.state)) refreshFromState();
+    return state;
+  }
+
   function currentChannelFromPage() {
     const watchOwner = document.querySelector('ytd-watch-metadata #owner a[href^="/@"], ytd-watch-metadata #owner a[href^="/channel/"], #upload-info a[href^="/@"], #upload-info a[href^="/channel/"]');
     const pageLink = watchOwner || document.querySelector('yt-page-header-view-model a[href^="/@"], yt-page-header-view-model a[href^="/channel/"], yt-page-header-renderer a[href^="/@"], ytd-c4-tabbed-header-renderer a[href^="/@"], link[rel="canonical"]');
-    const rawUrl = pageLink?.href || (Core.channelKey(location.href) ? location.href : "");
+    const locationId = Core.channelKey(location.href);
+    const canonicalUrl = document.querySelector('link[rel="canonical"]')?.href || "";
+    const canonicalId = Core.channelKey(canonicalUrl);
+    const rawUrl = locationId ? location.href : pageLink?.href || "";
     const id = Core.channelKey(rawUrl);
     if (!id) return null;
     const name = (watchOwner?.textContent || document.querySelector('yt-page-header-view-model h1, yt-page-header-view-model .yt-page-header-view-model__page-header-title, yt-page-header-renderer h1, ytd-c4-tabbed-header-renderer #channel-name')?.textContent || id).trim();
     const avatar = document.querySelector('ytd-watch-metadata #owner #avatar img, yt-page-header-view-model img, yt-page-header-renderer img, ytd-c4-tabbed-header-renderer #avatar img')?.src || "";
-    return { id, url: new URL(rawUrl, location.origin).href, name, avatar };
+    let channelId = "";
+    try { channelId = new URL(canonicalUrl).pathname.match(/^\/channel\/([^/]+)/i)?.[1] || ""; } catch (_error) {}
+    return {
+      id,
+      url: new URL(rawUrl, location.origin).href,
+      name,
+      avatar,
+      channelId,
+      aliasIds: canonicalId && canonicalId !== id ? [canonicalId] : []
+    };
   }
 
   function currentSubscriptionStatus() {
@@ -167,10 +238,8 @@
     if (!input) return;
     const channel = currentChannelFromPage();
     if (!channel || currentSubscriptionStatus() === false) { input.checked = false; toast("請先訂閱這個頻道，再加入群組"); return; }
-    if (!state.channels[channel.id]) state = Core.upsertChannels(state, [channel]);
-    state = Core.recordManualMembership(state, channel.id, input.dataset.tsCurrentGroup, input.checked);
     const group = state.groups.find((item) => item.id === input.dataset.tsCurrentGroup);
-    await writeState(state);
+    await commit({ type: "toggle-membership", payload: { channel, channelId: channel.id, aliasIds: channel.aliasIds, groupId: input.dataset.tsCurrentGroup, enabled: input.checked } });
     toast(input.checked ? `已加入「${group?.name || "群組"}」` : `已移出「${group?.name || "群組"}」`);
   }
 
@@ -178,8 +247,13 @@
     const channel = currentChannelFromPage();
     const subscribed = currentSubscriptionStatus();
     if (!channel || subscribed === null) return;
+    const storedAliases = (channel.aliasIds || []).filter((id) => id !== channel.id && state.channels[id]);
+    if (storedAliases.length) {
+      await commit({ type: "coalesce-channel-identities", payload: { primaryChannel: channel, aliasIds: storedAliases } });
+    }
     if (trackedSubscription.channelId !== channel.id) {
       trackedSubscription = { channelId: channel.id, subscribed };
+      if (subscribed && !state.channels[channel.id]) await commit({ type: "set-subscription", payload: { subscribed: true, channel, aliasIds: channel.aliasIds } });
       renderCurrentChannelControl();
       return;
     }
@@ -188,13 +262,11 @@
     trackedSubscription.subscribed = subscribed;
     if (previous === false && subscribed === true) {
       if (!state.channels[channel.id]) {
-        state = Core.upsertChannels(state, [channel]);
-        await writeState(state);
+        await commit({ type: "set-subscription", payload: { subscribed: true, channel, aliasIds: channel.aliasIds } });
       }
       toast("已加入未分類，稍後可以選擇群組");
     } else if (previous === true && subscribed === false && state.channels[channel.id]) {
-      state = Core.removeChannel(state, channel.id);
-      await writeState(state);
+      await commit({ type: "set-subscription", payload: { subscribed: false, channelId: channel.id, aliasIds: channel.aliasIds } });
       toast("已取消訂閱並從 TubeShelf 移除");
     }
     renderCurrentChannelControl();
@@ -406,8 +478,7 @@
   }
 
   async function changeSetting(setting, enabled) {
-    state.settings = Core.settingsAfterToggle(state.settings, setting, enabled);
-    await writeState(state);
+    await commit({ type: "set-setting", payload: { setting, enabled } });
     if (setting === "hideSecondary" && enabled) toast("已隱藏影片右側欄，並關閉自動播放");
   }
 
@@ -422,7 +493,7 @@
     if (!id) return null;
     const nameNode = card.querySelector("#text, #channel-title, #channel-name, yt-formatted-string.ytd-channel-name");
     const avatar = card.querySelector("#avatar img, yt-img-shadow img")?.src || "";
-    return { id, url: link.href, name: nameNode?.textContent?.trim() || link.textContent?.trim() || id, avatar };
+    return enrichChannelIdentity({ id, url: link.href, name: nameNode?.textContent?.trim() || link.textContent?.trim() || id, avatar });
   }
 
   function isWatchedCard(card) {
@@ -465,6 +536,7 @@
     let lastCount = -1;
     let lastHeight = -1;
     let reachedEnd = false;
+    window.postMessage({ source: IDENTITY_BRIDGE_SOURCE, type: "REQUEST_IDENTITIES" }, location.origin);
     renderScanProgress(0, false);
     try {
       for (let readyRound = 0; readyRound < 30; readyRound++) {
@@ -489,16 +561,30 @@
       }
       if (!found.size) throw new Error("No channels found");
       if (!reachedEnd) throw new Error("Subscription list did not reach a stable end");
-      await readState();
-      await writeState(Core.replaceChannels(state, [...found.values()]));
+      const scannedChannels = [...found.values()].map(enrichChannelIdentity);
+      await commit({ type: "reconcile-subscription-scan", payload: { channels: scannedChannels } });
       renderScanProgress(found.size, true);
       await chrome.runtime.sendMessage({ type: "SUBSCRIPTION_UPDATE_COMPLETE", count: found.size });
-    } catch (_error) {
+    } catch (error) {
       renderScanProgress(found.size, false);
       const card = document.querySelector("#tubeshelf-scan-progress .ts-scan-card");
-      if (card) card.innerHTML = `<div class="ts-scan-symbol">!</div><h2>更新未完成</h2><p>請確認 YouTube 的所有訂閱頻道頁能正常顯示，再重新執行。</p><strong>${found.size}</strong><small>個已找到頻道</small>`;
+      const guarded = error?.code === "SCAN_SHRINK_GUARD";
+      if (card) card.innerHTML = `<div class="ts-scan-symbol">!</div><h2>更新未完成</h2><p>${guarded ? "本次找到的頻道比現有書架少太多，已保留原資料以避免分類遺失。請確認清單完整，或手動確認使用本次結果。" : "請確認 YouTube 的所有訂閱頻道頁能正常顯示，再重新執行。"}</p><strong>${found.size}</strong><small>個已找到頻道</small>${guarded ? '<button id="tubeshelf-scan-force-apply" class="ts-button" type="button">仍以本次清單更新</button>' : ""}`;
       localizeExtensionUi(card);
-      chrome.runtime.sendMessage({ type: "SUBSCRIPTION_UPDATE_FAILED", count: found.size }).catch(() => {});
+      if (guarded) document.getElementById("tubeshelf-scan-force-apply")?.addEventListener("click", async (event) => {
+        if (!confirm(Core.translateUiText(`本次只找到 ${found.size} 個頻道。仍要以這份清單取代目前書架嗎？被移除頻道的分類資料也會刪除。`, currentLanguage()))) return;
+        event.currentTarget.disabled = true;
+        try {
+          const scannedChannels = [...found.values()].map(enrichChannelIdentity);
+          await commit({ type: "reconcile-subscription-scan", payload: { channels: scannedChannels, allowLargeRemoval: true } });
+          renderScanProgress(found.size, true);
+          await chrome.runtime.sendMessage({ type: "SUBSCRIPTION_UPDATE_COMPLETE", count: found.size });
+        } catch (forceError) {
+          event.currentTarget.disabled = false;
+          toast(String(forceError?.message || forceError));
+        }
+      });
+      chrome.runtime.sendMessage({ type: "SUBSCRIPTION_UPDATE_FAILED", count: found.size, error: error?.code || String(error) }).catch(() => {});
     }
   }
 
@@ -556,7 +642,8 @@
     for (const card of candidates) {
       let hidden = false;
       const channel = findChannelInCard(card);
-      if (allowed && (!channel || !allowed.has(channel.id))) hidden = true;
+      const channelId = channel ? Core.resolveChannelRecordId(state, channel.id) || channel.id : "";
+      if (allowed && (!channelId || !allowed.has(channelId))) hidden = true;
       if (state.settings.hideWatched) {
         if (isWatchedCard(card)) hidden = true;
       }
@@ -581,11 +668,7 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes[STORAGE_KEY]) {
-      state = Core.normalizeState(changes[STORAGE_KEY].newValue);
-      renderGroups();
-      renderIntegratedControls();
-      renderCurrentChannelControl();
-      applyFilters();
+      if (acceptState(changes[STORAGE_KEY].newValue)) refreshFromState();
     }
   });
 
@@ -640,17 +723,15 @@
   async function init() {
     makeShell();
     await readState();
-    if (isSubscriptionsPage()) {
-      const requestedGroup = new URLSearchParams(location.hash.replace(/^#/, "")).get("tubeshelf-group");
-      if (["all", "unfiled"].includes(requestedGroup) || state.groups.some((group) => group.id === requestedGroup)) activeGroupId = requestedGroup;
-    }
+    syncActiveGroupFromLocation();
     renderGroups();
     renderIntegratedControls();
     renderCurrentChannelControl();
     await syncSubscriptionState();
     applyFilters();
     updateObservation();
-    document.addEventListener("yt-navigate-finish", () => scheduleRefresh(0, { full: true, structure: true }));
+    document.addEventListener("yt-navigate-finish", () => { syncActiveGroupFromLocation(); scheduleRefresh(0, { full: true, structure: true }); });
+    window.addEventListener("hashchange", () => { syncActiveGroupFromLocation(); scheduleRefresh(0, { full: true }); });
     document.addEventListener("click", (event) => {
       const button = event.target.closest("button");
       if (!button) return;

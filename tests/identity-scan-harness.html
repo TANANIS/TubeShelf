@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <base href="/">
+    <script>
+      history.replaceState({}, "", "/feed/channels");
+      globalThis.__capturedIdentities = [];
+      window.addEventListener("message", (event) => {
+        if (event.data?.source === "tubeshelf-identity-bridge" && event.data?.type === "CHANNEL_IDENTITY") globalThis.__capturedIdentities.push(event.data);
+      });
+    </script>
+  </head>
+  <body>
+    <ytd-channel-renderer id="channel"><a href="/@TenaciousTrilobite">Tenacious Trilobite</a></ytd-channel-renderer>
+    <script>
+      document.getElementById("channel").data = {
+        navigationEndpoint: { browseEndpoint: { browseId: "UCNqVXfC231oVcZEcUKrW0DQ", canonicalBaseUrl: "/@TenaciousTrilobite" } }
+      };
+    </script>
+    <script src="/extension/content/identity-bridge.js"></script>
+  </body>
+</html>

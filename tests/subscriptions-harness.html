@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <base href="/">
+    <link rel="stylesheet" href="/extension/content/content.css">
+    <style>
+      body { margin: 32px; color: #f1f1f1; background: #0f0f0f; font-family: Arial, sans-serif; }
+      ytd-rich-section-renderer, ytd-rich-shelf-renderer { display: block; padding: 12px; }
+    </style>
+    <script>
+      history.replaceState({}, "", "/feed/subscriptions#tubeshelf-group=all");
+      globalThis.chrome = {
+        storage: {
+          local: {
+            get: async () => ({ tubeShelfState: {
+              version: 14,
+              revision: 0,
+              groups: [{ id: "lifestyle", name: "Lifestyle", icon: "sparkles", color: "#2dbd9b", channelIds: ["/@tenacioustrilobite"] }],
+              channels: {
+                "/@tenacioustrilobite": { id: "/@tenacioustrilobite", name: "Tenacious Trilobite", url: "https://www.youtube.com/@TenaciousTrilobite" },
+                "/@waiting": { id: "/@waiting", name: "Waiting Channel", url: "https://www.youtube.com/@waiting" }
+              },
+              manualLabels: {},
+              settings: { blockHome: false, hideShorts: true, hideSecondary: false, disableAutoplay: false, hideWatched: false, compactMode: false, onboardingComplete: true, language: "en" }
+            } }),
+            set: async () => {}
+          },
+          onChanged: { addListener: () => {} }
+        },
+        runtime: {
+          sendMessage: async () => ({ ok: true }),
+          onMessage: { addListener: () => {} }
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <ytd-browse page-subtype="subscriptions"><div id="primary"><main id="feed">
+      <ytd-rich-section-renderer id="regular-shelf"><h2>Latest</h2><a href="/watch?v=regular">Regular video</a></ytd-rich-section-renderer>
+      <ytd-rich-item-renderer id="categorized-card"><yt-lockup-view-model><a href="/@TenaciousTrilobite">Tenacious Trilobite</a></yt-lockup-view-model></ytd-rich-item-renderer>
+      <ytd-rich-item-renderer id="unfiled-card"><yt-lockup-view-model><a href="/@waiting">Waiting Channel</a></yt-lockup-view-model></ytd-rich-item-renderer>
+    </main></div></ytd-browse>
+    <script src="/extension/shared.js"></script>
+    <script src="/extension/content/content.js"></script>
+    <script>
+      setTimeout(() => {
+        const section = document.createElement("ytd-rich-section-renderer");
+        section.innerHTML = '<ytd-rich-shelf-renderer id="shorts-shelf"><h2><span id="title">Shorts</span></h2><a href="/shorts/demo">Short video</a></ytd-rich-shelf-renderer>';
+        document.querySelector("#feed").append(section);
+      }, 80);
+    </script>
+  </body>
+</html>

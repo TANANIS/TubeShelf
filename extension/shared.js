@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = 11;
+  const VERSION = 14;
   const LANGUAGES = ["zh-TW", "en"];
   const UI_TEXT_EN = {
     "你的訂閱，照你的方式排好": "Your subscriptions, organized your way",
@@ -58,7 +58,7 @@
     "刪除群組": "Delete group", "取消": "Cancel", "儲存群組": "Save group", "關閉": "Close",
     "自動整理群組": "Auto-organize groups", "只分析尚未分類的頻道": "Analyze only unclassified channels",
     "TubeShelf 會讀取公開頻道簡介與近期影片，透過細分類字典、重複主題與你之後的手動修正產生建議；若已設定 YouTube API Key，也會加入官方分類。既有群組不會被覆寫。": "TubeShelf uses public channel descriptions, recent videos, a detailed local taxonomy, repeated topics, and your later corrections. If an API key is configured, official YouTube categories are included. Existing groups are never overwritten.",
-    "不使用雲端 AI": "No cloud AI", "低信心保留未分類": "Low-confidence results stay unclassified", "確認後才套用": "Applied only after confirmation",
+    "不使用雲端 AI": "No cloud AI", "低信心也列入建議": "Low-confidence results included", "確認後才套用": "Applied only after confirmation",
     "正在準備本機分析": "Preparing local analysis", "檢查已儲存的頻道資料…": "Checking saved channel data…",
     "個頻道有分類建議": "channels have suggestions", "取消勾選不想建立的群組。只有按下「套用建議」才會修改群組。": "Uncheck groups you do not want. Groups change only after you select Apply suggestions.",
     "開始本機分析": "Start local analysis", "套用建議": "Apply suggestions", "頻道詳細資料": "Channel details",
@@ -79,6 +79,8 @@
     "這個分頁即將自動關閉。": "This tab will close automatically.",
     "TubeShelf 正在自動向下載入所有訂閱頻道，請暫時不要關閉這個分頁。": "TubeShelf is loading every subscribed channel. Please keep this tab open for now.",
     "更新未完成": "Update incomplete", "請確認 YouTube 的所有訂閱頻道頁能正常顯示，再重新執行。": "Make sure YouTube's subscribed-channels page loads correctly, then try again.",
+    "本次找到的頻道比現有書架少太多，已保留原資料以避免分類遺失。請確認清單完整，或手動確認使用本次結果。": "This scan found far fewer channels than the current shelf. Existing data was preserved to prevent classification loss. Check that the list is complete or manually confirm this result.",
+    "仍以本次清單更新": "Use this scan anyway",
     "你的 YouTube 訂閱書架": "Your YouTube subscription shelf", "訂閱群組": "Subscription groups",
     "控制 YouTube 頁面上的顯示方式與本機資料。": "Control YouTube display options and local data.",
     "所有已收集頻道": "All collected channels", "等待手動或自動整理": "Waiting for manual or automatic organization",
@@ -96,8 +98,8 @@
     "尚未取得頻道簡介；執行自動整理後會補齊公開資料。": "No channel description yet; auto-organization will fetch public data.",
     "尚未取得近期影片標題": "No recent video titles yet", "正在取得頻道分類線索": "Collecting channel classification signals",
     "正在本機產生分類建議": "Generating local suggestions", "所有文字只在這台裝置上分析。": "All text is analyzed only on this device.",
-    "所有待分類頻道都有中高信心建議": "Every unclassified channel has a medium- or high-confidence suggestion",
-    "高信心": "High confidence", "中信心": "Medium confidence", "低信心保留": "Low confidence kept unclassified",
+    "所有待分類頻道都有分類建議": "Every unclassified channel has a suggestion",
+    "高信心": "High confidence", "中信心": "Medium confidence", "低信心建議": "Low-confidence suggestions",
     "本機字典": "Local dictionary", "YouTube 官方訊號": "Official YouTube signals", "個人詞彙": "Personal vocabulary",
     "目前沒有足夠明確的分類建議": "No sufficiently clear suggestions", "既有群組不會受到影響；資訊不足的頻道會繼續留在待分類。": "Existing groups are unchanged; channels with insufficient information remain unclassified.",
     "請先更新訂閱內容": "Update subscriptions first", "目前沒有尚未分類的頻道": "There are no unclassified channels",
@@ -181,7 +183,7 @@
         [/^(.+) 加入 (.+)$/, "Add $1 to $2"], [/^已儲存：(.+)$/, "Saved: $1"],
         [/^已在本機設定（末四碼 (.+)）；更新資料或自動整理時會加入官方分類。$/, "Saved locally (ending in $1); official categories will be included when refreshing or auto-organizing."],
         [/^依據：(.+)$/, "Based on: $1"],
-        [/^(\d+) 個頻道因資訊不足、低信心或衝突而保留待分類$/, "$1 channels remain unclassified due to insufficient, low-confidence, or conflicting signals"],
+        [/^(\d+) 個頻道因資訊不足或分類衝突而保留待分類$/, "$1 channels remain unclassified due to insufficient or conflicting signals"],
         [/^目前書架已有 (\d+) 個頻道，可以直接前往下一步。$/, "Your shelf already has $1 channels, so you can continue."],
         [/^(\d+) 個頻道尚未分類；自動整理完成後仍可逐一修正。$/, "$1 channels are unclassified; you can adjust them after auto-organization."],
         [/^訂閱書架已更新，共 (\d+) 個頻道$/, "Subscription shelf updated: $1 channels"],
@@ -203,7 +205,8 @@
         [/^要把 (\d+) 個頻道加入「(.+)」嗎？$/, "Add $1 channels to “$2”?"],
         [/^要把 (\d+) 個頻道移出「(.+)」嗎？$/, "Remove $1 channels from “$2”?"],
         [/^要刪除「(.+)」嗎？其中 (\d+) 個頻道只會回到未分類，不會取消訂閱。$/, "Delete “$1”? Its $2 channels will return to Unclassified; YouTube subscriptions will not change."],
-        [/^要將「(.+)」的 (\d+) 個頻道合併到「(.+)」嗎？來源群組會被刪除。$/, "Merge $2 channels from “$1” into “$3”? The source group will be deleted."]
+        [/^要將「(.+)」的 (\d+) 個頻道合併到「(.+)」嗎？來源群組會被刪除。$/, "Merge $2 channels from “$1” into “$3”? The source group will be deleted."],
+        [/^本次只找到 (\d+) 個頻道。仍要以這份清單取代目前書架嗎？被移除頻道的分類資料也會刪除。$/, "This scan found only $1 channels. Replace the current shelf anyway? Classification data for removed channels will also be deleted."]
       ];
       for (const [pattern, replacement] of patterns) if (pattern.test(text)) return text.replace(pattern, replacement);
     }
@@ -351,8 +354,10 @@
     const language = detectDefaultLanguage();
     return {
       version: VERSION,
+      revision: 0,
       groups: clone(DEFAULT_GROUPS).map((group) => ({ ...group, name: language === "en" ? UI_TEXT_EN[group.name] || group.name : group.name })),
       channels: {},
+      channelAliases: {},
       manualLabels: {},
       settings: {
         blockHome: false,
@@ -371,44 +376,92 @@
     const base = defaultState();
     if (!input || typeof input !== "object") return base;
     const rawChannels = input.channels && typeof input.channels === "object" ? input.channels : {};
-    const channels = Object.fromEntries(Object.entries(rawChannels).filter(([, channel]) => channel && typeof channel === "object").map(([id, channel]) => [id, {
-      ...channel,
-      id,
-      name: cleanChannelName(channel.name, id).slice(0, 120),
-      description: sanitizeDescription(channel.description).slice(0, 2000),
-      keywords: sanitizeChannelKeywords(channel.keywords).slice(0, 1000),
-      recentTitles: Array.isArray(channel.recentTitles) ? channel.recentTitles.map((title) => String(title).trim()).filter(Boolean).slice(0, 20) : [],
-      recentVideoIds: Array.isArray(channel.recentVideoIds) ? channel.recentVideoIds.map(String).filter(Boolean).slice(0, 20) : [],
-      topicCategories: Array.isArray(channel.topicCategories) ? channel.topicCategories.map(String).filter(Boolean).slice(0, 20) : [],
-      topicIds: Array.isArray(channel.topicIds) ? channel.topicIds.map(String).filter(Boolean).slice(0, 20) : [],
-      videoCategoryCounts: channel.videoCategoryCounts && typeof channel.videoCategoryCounts === "object" ? Object.fromEntries(Object.entries(channel.videoCategoryCounts).map(([key, value]) => [String(key), Math.max(0, Number(value) || 0)]).filter(([, value]) => value > 0)) : {},
-      officialTags: Array.isArray(channel.officialTags) ? channel.officialTags.map(String).filter(Boolean).slice(0, 40) : [],
-      officialProfiledAt: Number(channel.officialProfiledAt) || 0
-    }]));
-    const groups = Array.isArray(input.groups)
+    const aliases = new Map();
+    const channels = {};
+    for (const [rawId, channel] of Object.entries(rawChannels)) {
+      if (!channel || typeof channel !== "object") continue;
+      const id = channelKey(channel.id) || channelKey(rawId) || channelKey(channel.url);
+      if (!id) continue;
+      aliases.set(String(rawId), id);
+      if (channel.id) aliases.set(String(channel.id), id);
+      const preferredUrlId = channelKey(channel.url) || id;
+      channels[id] = {
+        id,
+        name: cleanChannelName(channel.name, id).slice(0, 120),
+        url: `https://www.youtube.com${preferredUrlId}`,
+        avatar: typeof channel.avatar === "string" ? channel.avatar.slice(0, 2048) : "",
+        seenAt: Number(channel.seenAt) || 0,
+        description: sanitizeDescription(channel.description).slice(0, 2000),
+        keywords: sanitizeChannelKeywords(channel.keywords).slice(0, 1000),
+        channelId: String(channel.channelId || "").trim().slice(0, 128),
+        recentTitles: Array.isArray(channel.recentTitles) ? channel.recentTitles.map((title) => String(title).trim()).filter(Boolean).slice(0, 20) : [],
+        recentVideoIds: Array.isArray(channel.recentVideoIds) ? channel.recentVideoIds.map(String).filter(Boolean).slice(0, 20) : [],
+        topicCategories: Array.isArray(channel.topicCategories) ? channel.topicCategories.map(String).filter(Boolean).slice(0, 20) : [],
+        topicIds: Array.isArray(channel.topicIds) ? channel.topicIds.map(String).filter(Boolean).slice(0, 20) : [],
+        videoCategoryCounts: channel.videoCategoryCounts && typeof channel.videoCategoryCounts === "object" ? Object.fromEntries(Object.entries(channel.videoCategoryCounts).slice(0, 50).map(([key, value]) => [String(key), Math.max(0, Number(value) || 0)]).filter(([, value]) => value > 0)) : {},
+        officialTags: Array.isArray(channel.officialTags) ? channel.officialTags.map(String).filter(Boolean).slice(0, 40) : [],
+        officialProfiledAt: Number(channel.officialProfiledAt) || 0,
+        profiledAt: Number(channel.profiledAt) || 0,
+        profileVersion: Number(channel.profileVersion) || 0
+      };
+    }
+    const channelAliases = {};
+    const registerAlias = (value, recordId) => {
+      const alias = channelKey(String(value || ""));
+      if (alias && channels[recordId] && !channelAliases[alias]) channelAliases[alias] = recordId;
+    };
+    for (const [recordId, channel] of Object.entries(channels)) {
+      registerAlias(recordId, recordId);
+      registerAlias(channel.url, recordId);
+      if (channel.channelId) registerAlias(`/channel/${channel.channelId}`, recordId);
+    }
+    for (const [rawAlias, rawRecordId] of Object.entries(input.channelAliases && typeof input.channelAliases === "object" ? input.channelAliases : {})) {
+      const recordId = aliases.get(String(rawRecordId)) || channelKey(String(rawRecordId));
+      registerAlias(rawAlias, recordId);
+    }
+    const resolvePersistedId = (value) => {
+      const raw = String(value || "");
+      const normalized = aliases.get(raw) || channelKey(raw);
+      return channelAliases[normalized] || (channels[normalized] ? normalized : "");
+    };
+    const seenGroupIds = new Set();
+    const groups = (Array.isArray(input.groups)
       ? input.groups
           .filter((group) => group && typeof group.name === "string")
           .map((group, index) => ({
-            id: String(group.id || `group-${index + 1}`),
+            id: String(group.id || `group-${index + 1}`).slice(0, 80),
             name: group.name.trim().slice(0, 40) || `群組 ${index + 1}`,
             icon: ICONS[group.icon] ? group.icon : "star",
             color: /^#[0-9a-f]{6}$/i.test(group.color || "") ? group.color : "#7c5cff",
             channelIds: Array.isArray(group.channelIds)
-              ? [...new Set(group.channelIds.map(String).filter((id) => channels[id]))]
+              ? [...new Set(group.channelIds.map(resolvePersistedId).filter(Boolean))]
               : []
           }))
-      : base.groups;
+      : base.groups).filter((group) => group.id && !seenGroupIds.has(group.id) && seenGroupIds.add(group.id));
     const validGroupIds = new Set(groups.map((group) => group.id));
     const manualLabels = Object.fromEntries(Object.entries(input.manualLabels && typeof input.manualLabels === "object" ? input.manualLabels : {})
+      .map(([channelId, groupIds]) => [resolvePersistedId(channelId), groupIds])
       .filter(([channelId, groupIds]) => channels[channelId] && Array.isArray(groupIds))
       .map(([channelId, groupIds]) => [channelId, [...new Set(groupIds.map(String).filter((groupId) => validGroupIds.has(groupId)))]])
       .filter(([, groupIds]) => groupIds.length));
+    const rawSettings = input.settings && typeof input.settings === "object" ? input.settings : {};
     return {
       version: VERSION,
+      revision: Math.max(0, Math.floor(Number(input.revision) || 0)),
       groups,
       channels,
+      channelAliases,
       manualLabels,
-      settings: { ...base.settings, ...(input.settings || {}), language: languageCode(input.settings?.language) }
+      settings: {
+        blockHome: typeof rawSettings.blockHome === "boolean" ? rawSettings.blockHome : base.settings.blockHome,
+        hideShorts: typeof rawSettings.hideShorts === "boolean" ? rawSettings.hideShorts : base.settings.hideShorts,
+        hideSecondary: typeof rawSettings.hideSecondary === "boolean" ? rawSettings.hideSecondary : base.settings.hideSecondary,
+        disableAutoplay: typeof rawSettings.disableAutoplay === "boolean" ? rawSettings.disableAutoplay : base.settings.disableAutoplay,
+        hideWatched: typeof rawSettings.hideWatched === "boolean" ? rawSettings.hideWatched : base.settings.hideWatched,
+        compactMode: typeof rawSettings.compactMode === "boolean" ? rawSettings.compactMode : base.settings.compactMode,
+        onboardingComplete: typeof rawSettings.onboardingComplete === "boolean" ? rawSettings.onboardingComplete : base.settings.onboardingComplete,
+        language: languageCode(rawSettings.language)
+      }
     };
   }
 
@@ -471,78 +524,156 @@
     return id;
   }
 
-  function upsertChannels(state, incoming) {
-    const next = normalizeState(state);
+  function channelIdentityKeys(channel, extraAliases = []) {
+    return [...new Set([
+      channel?.url,
+      channel?.id,
+      channel?.channelId ? `/channel/${channel.channelId}` : "",
+      ...(Array.isArray(channel?.aliases) ? channel.aliases : []),
+      ...(Array.isArray(extraAliases) ? extraAliases : [])
+    ].map((value) => channelKey(String(value || ""))).filter(Boolean))];
+  }
+
+  function resolveChannelRecordId(state, identity) {
+    const key = channelKey(String(identity || ""));
+    if (!key) return "";
+    return state?.channelAliases?.[key] || (state?.channels?.[key] ? key : "");
+  }
+
+  function upsertChannels(state, incoming, alreadyNormalized = false) {
+    const next = alreadyNormalized ? state : normalizeState(state);
     for (const channel of incoming || []) {
-      const id = channelKey(channel.url || channel.id);
-      if (!id) continue;
+      const identities = channelIdentityKeys(channel);
+      const preferred = channelKey(channel?.url || channel?.id);
+      if (!preferred) continue;
+      const resolved = [...new Set(identities.map((identity) => resolveChannelRecordId(next, identity)).filter(Boolean))];
+      const id = resolved.includes(preferred) ? preferred : resolved[0] || preferred;
+      const previous = next.channels[id];
       next.channels[id] = {
         id,
-        name: cleanChannelName(channel.name || next.channels[id]?.name, id).slice(0, 120),
-        url: `https://www.youtube.com${id}`,
-        avatar: typeof channel.avatar === "string" ? channel.avatar : next.channels[id]?.avatar || "",
+        name: cleanChannelName(channel.name || previous?.name, id).slice(0, 120),
+        url: `https://www.youtube.com${preferred.startsWith("/@") ? preferred : channelKey(previous?.url) || preferred}`,
+        avatar: typeof channel.avatar === "string" && channel.avatar ? channel.avatar : previous?.avatar || "",
         seenAt: Number(channel.seenAt) || Date.now(),
-        description: sanitizeDescription(channel.description || next.channels[id]?.description).slice(0, 2000),
-        keywords: sanitizeChannelKeywords(channel.keywords || next.channels[id]?.keywords).slice(0, 1000),
-        channelId: String(channel.channelId || next.channels[id]?.channelId || "").trim(),
-        recentTitles: Array.isArray(channel.recentTitles) ? channel.recentTitles.map(String).slice(0, 20) : next.channels[id]?.recentTitles || [],
-        recentVideoIds: Array.isArray(channel.recentVideoIds) ? channel.recentVideoIds.map(String).slice(0, 20) : next.channels[id]?.recentVideoIds || [],
-        topicCategories: Array.isArray(channel.topicCategories) ? channel.topicCategories.map(String).slice(0, 20) : next.channels[id]?.topicCategories || [],
-        topicIds: Array.isArray(channel.topicIds) ? channel.topicIds.map(String).slice(0, 20) : next.channels[id]?.topicIds || [],
-        videoCategoryCounts: channel.videoCategoryCounts || next.channels[id]?.videoCategoryCounts || {},
-        officialTags: Array.isArray(channel.officialTags) ? channel.officialTags.map(String).slice(0, 40) : next.channels[id]?.officialTags || [],
-        officialProfiledAt: Number(channel.officialProfiledAt) || Number(next.channels[id]?.officialProfiledAt) || 0,
-        profiledAt: Number(channel.profiledAt) || Number(next.channels[id]?.profiledAt) || 0,
-        profileVersion: Number(channel.profileVersion) || Number(next.channels[id]?.profileVersion) || 0
+        description: sanitizeDescription(channel.description || previous?.description).slice(0, 2000),
+        keywords: sanitizeChannelKeywords(channel.keywords || previous?.keywords).slice(0, 1000),
+        channelId: String(channel.channelId || previous?.channelId || "").trim(),
+        recentTitles: Array.isArray(channel.recentTitles) ? channel.recentTitles.map(String).slice(0, 20) : previous?.recentTitles || [],
+        recentVideoIds: Array.isArray(channel.recentVideoIds) ? channel.recentVideoIds.map(String).slice(0, 20) : previous?.recentVideoIds || [],
+        topicCategories: Array.isArray(channel.topicCategories) ? channel.topicCategories.map(String).slice(0, 20) : previous?.topicCategories || [],
+        topicIds: Array.isArray(channel.topicIds) ? channel.topicIds.map(String).slice(0, 20) : previous?.topicIds || [],
+        videoCategoryCounts: channel.videoCategoryCounts || previous?.videoCategoryCounts || {},
+        officialTags: Array.isArray(channel.officialTags) ? channel.officialTags.map(String).slice(0, 40) : previous?.officialTags || [],
+        officialProfiledAt: Number(channel.officialProfiledAt) || Number(previous?.officialProfiledAt) || 0,
+        profiledAt: Number(channel.profiledAt) || Number(previous?.profiledAt) || 0,
+        profileVersion: Number(channel.profileVersion) || Number(previous?.profileVersion) || 0
       };
+      next.channelAliases[id] = id;
+      identities.forEach((identity) => { next.channelAliases[identity] = id; });
     }
-    return next;
+    return alreadyNormalized ? next : normalizeState(next);
+  }
+
+  function reconcileSubscriptionScan(state, incoming, options = {}) {
+    let next = normalizeState(state);
+    const seen = new Set();
+    for (const channel of incoming || []) {
+      const aliases = channelIdentityKeys(channel).filter((identity) => identity !== channelKey(channel?.url || channel?.id));
+      next = coalesceChannelIdentities(next, channel, aliases, true);
+      next = upsertChannels(next, [channel], true);
+      const recordId = resolveChannelRecordId(next, channel?.url || channel?.id);
+      if (recordId) seen.add(recordId);
+    }
+    const removable = Object.keys(next.channels).filter((id) => !seen.has(id) && !id.startsWith("/channel/"));
+    const previousCount = Object.keys(next.channels).length;
+    const removalLimit = Math.max(10, Math.ceil(previousCount * 0.15));
+    if (!options.allowLargeRemoval && previousCount >= 20 && removable.length > removalLimit) {
+      const error = new Error(`Scan would remove ${removable.length} of ${previousCount} channels`);
+      error.code = "SCAN_SHRINK_GUARD";
+      throw error;
+    }
+    const removeSet = new Set(removable);
+    removable.forEach((id) => {
+      delete next.channels[id];
+      delete next.manualLabels[id];
+    });
+    Object.entries(next.channelAliases).forEach(([alias, recordId]) => { if (removeSet.has(recordId) || removeSet.has(alias)) delete next.channelAliases[alias]; });
+    next.groups = next.groups.map((group) => ({ ...group, channelIds: group.channelIds.filter((id) => !removeSet.has(id)) }));
+    return normalizeState(next);
   }
 
   function replaceChannels(state, incoming) {
-    const current = normalizeState(state);
-    const channels = {};
-    for (const channel of incoming || []) {
-      const id = channelKey(channel.url || channel.id);
-      if (!id) continue;
-      channels[id] = {
-        id,
-        name: cleanChannelName(channel.name || current.channels[id]?.name, id).slice(0, 120),
-        url: `https://www.youtube.com${id}`,
-        avatar: typeof channel.avatar === "string" ? channel.avatar : current.channels[id]?.avatar || "",
-        seenAt: Number(channel.seenAt) || Date.now(),
-        description: sanitizeDescription(channel.description || current.channels[id]?.description).slice(0, 2000),
-        keywords: sanitizeChannelKeywords(channel.keywords || current.channels[id]?.keywords).slice(0, 1000),
-        channelId: String(channel.channelId || current.channels[id]?.channelId || "").trim(),
-        recentTitles: Array.isArray(channel.recentTitles) ? channel.recentTitles.map(String).slice(0, 20) : current.channels[id]?.recentTitles || [],
-        recentVideoIds: Array.isArray(channel.recentVideoIds) ? channel.recentVideoIds.map(String).slice(0, 20) : current.channels[id]?.recentVideoIds || [],
-        topicCategories: Array.isArray(channel.topicCategories) ? channel.topicCategories.map(String).slice(0, 20) : current.channels[id]?.topicCategories || [],
-        topicIds: Array.isArray(channel.topicIds) ? channel.topicIds.map(String).slice(0, 20) : current.channels[id]?.topicIds || [],
-        videoCategoryCounts: channel.videoCategoryCounts || current.channels[id]?.videoCategoryCounts || {},
-        officialTags: Array.isArray(channel.officialTags) ? channel.officialTags.map(String).slice(0, 40) : current.channels[id]?.officialTags || [],
-        officialProfiledAt: Number(channel.officialProfiledAt) || Number(current.channels[id]?.officialProfiledAt) || 0,
-        profiledAt: Number(channel.profiledAt) || Number(current.channels[id]?.profiledAt) || 0,
-        profileVersion: Number(channel.profileVersion) || Number(current.channels[id]?.profileVersion) || 0
-      };
-    }
-    return normalizeState({
-      ...current,
-      channels,
-      groups: current.groups.map((group) => ({ ...group, channelIds: group.channelIds.filter((id) => channels[id]) }))
-    });
+    return reconcileSubscriptionScan(state, incoming, { allowLargeRemoval: true });
   }
 
   function removeChannel(state, channelId) {
     const next = normalizeState(state);
-    const id = String(channelId || "");
+    const id = resolveChannelRecordId(next, channelId) || String(channelId || "");
     delete next.channels[id];
     delete next.manualLabels[id];
+    Object.entries(next.channelAliases).forEach(([alias, recordId]) => { if (recordId === id || alias === id) delete next.channelAliases[alias]; });
     next.groups = next.groups.map((group) => ({ ...group, channelIds: group.channelIds.filter((item) => item !== id) }));
     return normalizeState(next);
   }
 
+  function coalesceChannelIdentities(state, primaryChannel, aliasIds, alreadyNormalized = false) {
+    let next = alreadyNormalized ? state : normalizeState(state);
+    const preferredIdentity = channelKey(primaryChannel?.url || primaryChannel?.id);
+    if (!preferredIdentity) return next;
+    const identities = channelIdentityKeys(primaryChannel, aliasIds);
+    const resolvedIds = [...new Set(identities.map((identity) => resolveChannelRecordId(next, identity)).filter(Boolean))];
+    const primaryId = resolvedIds.includes(preferredIdentity) ? preferredIdentity : resolvedIds[0] || preferredIdentity;
+    const existing = resolvedIds.map((id) => next.channels[id]).filter(Boolean);
+    if (!existing.length && primaryChannel) return upsertChannels(next, [primaryChannel], alreadyNormalized);
+    if (!existing.length) return next;
+
+    const records = existing;
+    const newestLocal = records.reduce((best, item) => (Number(item.profiledAt) || 0) >= (Number(best.profiledAt) || 0) ? item : best, records[0]);
+    const newestOfficial = records.reduce((best, item) => (Number(item.officialProfiledAt) || 0) >= (Number(best.officialProfiledAt) || 0) ? item : best, records[0]);
+    const newestSeen = records.reduce((best, item) => (Number(item.seenAt) || 0) >= (Number(best.seenAt) || 0) ? item : best, records[0]);
+    const target = {
+      ...(next.channels[primaryId] || existing[0]),
+      id: primaryId,
+      url: `https://www.youtube.com${preferredIdentity.startsWith("/@") ? preferredIdentity : channelKey((next.channels[primaryId] || existing[0]).url) || preferredIdentity}`,
+      name: cleanChannelName(primaryChannel?.name || next.channels[primaryId]?.name || newestSeen.name, primaryId).slice(0, 120),
+      avatar: primaryChannel?.avatar || newestSeen.avatar || next.channels[primaryId]?.avatar || "",
+      seenAt: Math.max(...records.map((item) => Number(item.seenAt) || 0)),
+      description: newestLocal.description || next.channels[primaryId]?.description || "",
+      keywords: newestLocal.keywords || next.channels[primaryId]?.keywords || "",
+      channelId: String(primaryChannel?.channelId || records.find((item) => item.channelId)?.channelId || "").trim(),
+      recentTitles: newestLocal.recentTitles?.length ? newestLocal.recentTitles : next.channels[primaryId]?.recentTitles || [],
+      recentVideoIds: newestLocal.recentVideoIds?.length ? newestLocal.recentVideoIds : next.channels[primaryId]?.recentVideoIds || [],
+      profiledAt: Number(newestLocal.profiledAt) || 0,
+      profileVersion: Number(newestLocal.profileVersion) || 0,
+      topicCategories: newestOfficial.topicCategories?.length ? newestOfficial.topicCategories : next.channels[primaryId]?.topicCategories || [],
+      topicIds: newestOfficial.topicIds?.length ? newestOfficial.topicIds : next.channels[primaryId]?.topicIds || [],
+      videoCategoryCounts: Object.keys(newestOfficial.videoCategoryCounts || {}).length ? newestOfficial.videoCategoryCounts : next.channels[primaryId]?.videoCategoryCounts || {},
+      officialTags: newestOfficial.officialTags?.length ? newestOfficial.officialTags : next.channels[primaryId]?.officialTags || [],
+      officialProfiledAt: Number(newestOfficial.officialProfiledAt) || 0
+    };
+
+    const identitySet = new Set(resolvedIds);
+    next.groups = next.groups.map((group) => ({
+      ...group,
+      channelIds: [...new Set(group.channelIds.map((id) => identitySet.has(id) ? primaryId : id))]
+    }));
+    const learnedGroups = new Set(resolvedIds.flatMap((id) => next.manualLabels[id] || []));
+    resolvedIds.forEach((id) => {
+      if (id !== primaryId) delete next.channels[id];
+      delete next.manualLabels[id];
+    });
+    next.channels[primaryId] = target;
+    if (learnedGroups.size) next.manualLabels[primaryId] = [...learnedGroups];
+    Object.entries(next.channelAliases).forEach(([alias, recordId]) => { if (identitySet.has(recordId)) next.channelAliases[alias] = primaryId; });
+    identities.forEach((identity) => { next.channelAliases[identity] = primaryId; });
+    next.channelAliases[primaryId] = primaryId;
+    return alreadyNormalized ? next : normalizeState(next);
+  }
+
   function groupForChannel(state, id) {
-    return normalizeState(state).groups.filter((group) => group.channelIds.includes(id));
+    const current = normalizeState(state);
+    const recordId = resolveChannelRecordId(current, id) || String(id || "");
+    return current.groups.filter((group) => group.channelIds.includes(recordId));
   }
 
   function unfiledChannelIds(state) {
@@ -769,7 +900,6 @@
       if (!result) { uncertain.push(channel.id); continue; }
       stats[result.confidence] += 1;
       result.sources.forEach((source) => { if (source in stats) stats[source] += 1; });
-      if (result.confidence === "low") { uncertain.push(channel.id); continue; }
       if (!suggestions.has(result.groupId)) suggestions.set(result.groupId, { ...result, channelIds: [], channels: [] });
       const target = suggestions.get(result.groupId);
       target.channelIds.push(channel.id);
@@ -780,15 +910,20 @@
 
   function recordManualMembership(state, channelId, groupId, enabled) {
     const next = normalizeState(state);
+    updateMembershipInPlace(next, channelId, groupId, enabled);
+    return normalizeState(next);
+  }
+
+  function updateMembershipInPlace(next, channelId, groupId, enabled) {
     const group = next.groups.find((item) => item.id === groupId);
-    if (!group || !next.channels[channelId]) return next;
+    if (!group || !next.channels[channelId]) return false;
     group.channelIds = enabled ? [...new Set([...group.channelIds, channelId])] : group.channelIds.filter((id) => id !== channelId);
     const labels = new Set(next.manualLabels[channelId] || []);
     if (enabled) labels.add(groupId);
     else labels.delete(groupId);
     if (labels.size) next.manualLabels[channelId] = [...labels];
     else delete next.manualLabels[channelId];
-    return normalizeState(next);
+    return true;
   }
 
   function applyAutoGroupSuggestions(state, suggestionGroups) {
@@ -828,6 +963,103 @@
     return normalizeState(next);
   }
 
+  function applyStateOperation(state, operation) {
+    const current = normalizeState(state);
+    const type = String(operation?.type || "");
+    const payload = operation?.payload && typeof operation.payload === "object" ? operation.payload : {};
+    if (type === "toggle-membership") {
+      let next = payload.channel ? coalesceChannelIdentities(current, payload.channel, payload.aliasIds) : current;
+      const identity = channelKey(payload.channel?.url || payload.channel?.id || payload.channelId);
+      if (payload.channel && identity && !resolveChannelRecordId(next, identity)) next = upsertChannels(next, [payload.channel]);
+      const channelId = resolveChannelRecordId(next, identity);
+      if (!channelId || !updateMembershipInPlace(next, channelId, String(payload.groupId || ""), Boolean(payload.enabled))) throw new Error("Invalid membership operation");
+      return normalizeState(next);
+    }
+    if (type === "bulk-membership") {
+      const next = current;
+      const groupId = String(payload.groupId || "");
+      if (!next.groups.some((group) => group.id === groupId)) throw new Error("Unknown group");
+      for (const identity of [...new Set(Array.isArray(payload.channelIds) ? payload.channelIds.map(String) : [])]) {
+        const channelId = resolveChannelRecordId(next, identity) || identity;
+        updateMembershipInPlace(next, channelId, groupId, Boolean(payload.enabled));
+      }
+      return normalizeState(next);
+    }
+    if (type === "set-subscription") {
+      if (payload.subscribed) {
+        const merged = payload.channel ? coalesceChannelIdentities(current, payload.channel, payload.aliasIds) : current;
+        return upsertChannels(merged, payload.channel ? [payload.channel] : []);
+      }
+      const channelId = channelKey(payload.channel?.url || payload.channel?.id || payload.channelId);
+      return [channelId, ...(Array.isArray(payload.aliasIds) ? payload.aliasIds.map(String) : [])]
+        .filter(Boolean)
+        .reduce((next, id) => removeChannel(next, channelKey(id)), current);
+    }
+    if (type === "coalesce-channel-identities") return coalesceChannelIdentities(current, payload.primaryChannel, payload.aliasIds);
+    if (type === "set-setting") {
+      const setting = String(payload.setting || "");
+      if (!["blockHome", "hideShorts", "hideSecondary", "disableAutoplay", "hideWatched", "compactMode"].includes(setting)) throw new Error("Unknown setting");
+      return normalizeState({ ...current, settings: settingsAfterToggle(current.settings, setting, payload.enabled) });
+    }
+    if (type === "set-language") return normalizeState({ ...current, settings: { ...current.settings, language: languageCode(payload.language) } });
+    if (type === "set-onboarding-complete") return normalizeState({ ...current, settings: { ...current.settings, onboardingComplete: Boolean(payload.complete) } });
+    if (type === "save-group") {
+      const next = current;
+      const id = String(payload.id || "");
+      const name = String(payload.name || "").trim().slice(0, 40);
+      if (!name) throw new Error("Group name is required");
+      const values = { name, icon: ICONS[payload.icon] ? payload.icon : "star", color: /^#[0-9a-f]{6}$/i.test(payload.color || "") ? payload.color : "#7c5cff" };
+      if (id) {
+        const group = next.groups.find((item) => item.id === id);
+        if (!group) throw new Error("Unknown group");
+        Object.assign(group, values);
+      } else {
+        next.groups.push({ id: createId(name, next.groups.map((item) => item.id)), ...values, channelIds: [] });
+      }
+      return normalizeState(next);
+    }
+    if (type === "merge-groups") {
+      const sourceGroupId = String(payload.sourceGroupId || "");
+      const targetGroupId = String(payload.targetGroupId || "");
+      if (sourceGroupId === targetGroupId || !current.groups.some((group) => group.id === sourceGroupId) || !current.groups.some((group) => group.id === targetGroupId)) throw new Error("Invalid group merge");
+      return mergeGroups(current, sourceGroupId, targetGroupId);
+    }
+    if (type === "delete-group") {
+      const id = String(payload.groupId || "");
+      if (!current.groups.some((group) => group.id === id)) throw new Error("Unknown group");
+      return normalizeState({ ...current, groups: current.groups.filter((group) => group.id !== id) });
+    }
+    if (type === "apply-auto-suggestions") {
+      const stillUnfiled = new Set(unfiledChannelIds(current));
+      const suggestions = (Array.isArray(payload.groups) ? payload.groups : []).map((group) => ({ ...group, channelIds: (group.channelIds || []).filter((id) => stillUnfiled.has(id)) }));
+      return applyAutoGroupSuggestions(current, suggestions);
+    }
+    if (type === "patch-channels") {
+      const next = current;
+      for (const update of Array.isArray(payload.updates) ? payload.updates : []) {
+        const id = resolveChannelRecordId(next, update?.id) || String(update?.id || "");
+        if (!next.channels[id] || !update?.patch || typeof update.patch !== "object") continue;
+        const target = next.channels[id];
+        const patch = update.patch;
+        const localStamp = Number(patch.profiledAt) || 0;
+        if (localStamp && localStamp >= (Number(target.profiledAt) || 0)) {
+          for (const key of ["description", "keywords", "channelId", "recentTitles", "recentVideoIds", "profiledAt", "profileVersion"]) if (Object.hasOwn(patch, key)) target[key] = patch[key];
+        }
+        const officialStamp = Number(patch.officialProfiledAt) || 0;
+        if (officialStamp && officialStamp >= (Number(target.officialProfiledAt) || 0)) {
+          for (const key of ["topicCategories", "topicIds", "videoCategoryCounts", "officialTags", "officialProfiledAt"]) if (Object.hasOwn(patch, key)) target[key] = patch[key];
+        }
+        if (Object.hasOwn(patch, "avatar") && (!target.avatar || (Number(patch.seenAt) || 0) >= (Number(target.seenAt) || 0))) target.avatar = patch.avatar;
+        if (Object.hasOwn(patch, "seenAt") && (Number(patch.seenAt) || 0) >= (Number(target.seenAt) || 0)) target.seenAt = patch.seenAt;
+      }
+      return normalizeState(next);
+    }
+    if (["replace-channels", "reconcile-subscription-scan"].includes(type)) return reconcileSubscriptionScan(current, Array.isArray(payload.channels) ? payload.channels : [], { allowLargeRemoval: Boolean(payload.allowLargeRemoval) });
+    if (type === "replace-state") return normalizeState(payload.state);
+    if (type === "reset-state") return defaultState();
+    throw new Error("Unknown state operation");
+  }
+
   function iconSvg(name, color, size) {
     const path = ICONS[name] || ICONS.star;
     const px = Number(size) || 20;
@@ -859,7 +1091,10 @@
     createId,
     upsertChannels,
     replaceChannels,
+    reconcileSubscriptionScan,
     removeChannel,
+    coalesceChannelIdentities,
+    resolveChannelRecordId,
     groupForChannel,
     unfiledChannelIds,
     collectRecentVideos,
@@ -870,6 +1105,7 @@
     recordManualMembership,
     applyAutoGroupSuggestions,
     mergeGroups,
+    applyStateOperation,
     iconSvg
   };
 });

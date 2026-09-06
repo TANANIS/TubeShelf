@@ -17,7 +17,8 @@ test("YouTube page kinds keep recommendations separate from subscriptions", () =
 
 test("new distraction controls default off and migrate into saved state", () => {
   const defaults = Core.defaultState();
-  assert.equal(Core.VERSION, 11);
+  assert.equal(Core.VERSION, 14);
+  assert.equal(defaults.revision, 0);
   assert.deepEqual(defaults.manualLabels, {});
   assert.equal(defaults.settings.blockHome, false);
   assert.equal(defaults.settings.hideShorts, false);
@@ -129,6 +130,24 @@ test("normalizeState cleans duplicated channel names and YouTube boilerplate met
   assert.equal(state.channels["/@one"].name, "測試頻道");
   assert.equal(state.channels["/@one"].description, "");
   assert.equal(state.channels["/@one"].keywords, "");
+});
+
+test("normalizeState enforces the persisted schema and setting types", () => {
+  const state = Core.normalizeState({
+    channels: { "/@One": { id: "/@One", name: "One", unexpected: { large: true } }, invalid: { name: "Invalid" } },
+    groups: [
+      { id: "same", name: "First", channelIds: ["/@One"] },
+      { id: "same", name: "Duplicate", channelIds: ["/@One"] }
+    ],
+    settings: { hideShorts: "false", blockHome: true, unexpected: true }
+  });
+  assert.deepEqual(Object.keys(state.channels), ["/@one"]);
+  assert.equal("unexpected" in state.channels["/@one"], false);
+  assert.equal(state.groups.length, 1);
+  assert.deepEqual(state.groups[0].channelIds, ["/@one"]);
+  assert.equal(state.settings.hideShorts, false);
+  assert.equal(state.settings.blockHome, true);
+  assert.equal("unexpected" in state.settings, false);
 });
 
 test("upsertChannels merges new channels without losing groups", () => {
@@ -243,11 +262,12 @@ test("manual corrections build a private per-group vocabulary", () => {
   assert.ok(result.sources.includes("personal"));
 });
 
-test("low confidence guesses remain unclassified", () => {
+test("low confidence guesses are included in reviewable suggestions", () => {
   const state = Core.normalizeState({ channels: { "/@weak": { id: "/@weak", name: "Creator", description: "Python" } }, groups: [] });
   const suggestions = Core.buildAutoGroupSuggestions(state);
-  assert.deepEqual(suggestions.groups, []);
-  assert.deepEqual(suggestions.uncertain, ["/@weak"]);
+  assert.deepEqual(suggestions.groups.flatMap((group) => group.channelIds), ["/@weak"]);
+  assert.equal(suggestions.groups[0].channels[0].confidence, "low");
+  assert.deepEqual(suggestions.uncertain, []);
   assert.equal(suggestions.stats.low, 1);
 });
 
@@ -310,4 +330,113 @@ test("applying suggestions adds memberships without overwriting manual groups", 
   const next = Core.applyAutoGroupSuggestions(state, [{ groupId: "games", name: "遊戲", icon: "game", color: "#2dbd9b", channelIds: ["/@game"] }]);
   assert.deepEqual(next.groups.find((group) => group.id === "learning").channelIds, ["/@manual"]);
   assert.deepEqual(next.groups.find((group) => group.name === "遊戲").channelIds, ["/@game"]);
+});
+
+test("state operations apply independent intents to the latest state", () => {
+  let state = Core.defaultState();
+  state.channels = {
+    "/@one": { id: "/@one", name: "One", url: "https://www.youtube.com/@one" },
+    "/@two": { id: "/@two", name: "Two", url: "https://www.youtube.com/@two" }
+  };
+  state = Core.applyStateOperation(state, { type: "toggle-membership", payload: { channelId: "/@one", groupId: "learning", enabled: true } });
+  state = Core.applyStateOperation(state, { type: "toggle-membership", payload: { channelId: "/@two", groupId: "relax", enabled: true } });
+  state = Core.applyStateOperation(state, { type: "set-setting", payload: { setting: "hideShorts", enabled: true } });
+  assert.deepEqual(state.groups.find((group) => group.id === "learning").channelIds, ["/@one"]);
+  assert.deepEqual(state.groups.find((group) => group.id === "relax").channelIds, ["/@two"]);
+  assert.equal(state.settings.hideShorts, true);
+});
+
+test("channel identity coalescing moves canonical memberships onto the handle", () => {
+  let state = Core.normalizeState({
+    channels: {
+      "/@tenacioustrilobite": { id: "/@tenacioustrilobite", name: "Tenacious Trilobite", url: "https://www.youtube.com/@TenaciousTrilobite", seenAt: 100 },
+      "/channel/ucnqvxfc231ovczecukrw0dq": { id: "/channel/ucnqvxfc231ovczecukrw0dq", name: "Tenacious Trilobite", url: "https://www.youtube.com/channel/UCNqVXfC231oVcZEcUKrW0DQ", description: "Old firearms", profiledAt: 200 }
+    },
+    groups: [{ id: "relax", name: "Lifestyle", icon: "sparkles", color: "#2dbd9b", channelIds: ["/channel/ucnqvxfc231ovczecukrw0dq"] }],
+    manualLabels: { "/channel/ucnqvxfc231ovczecukrw0dq": ["relax"] }
+  });
+  state = Core.applyStateOperation(state, {
+    type: "coalesce-channel-identities",
+    payload: {
+      primaryChannel: { id: "/@tenacioustrilobite", url: "https://www.youtube.com/@TenaciousTrilobite", name: "Tenacious Trilobite", channelId: "UCNqVXfC231oVcZEcUKrW0DQ" },
+      aliasIds: ["/channel/ucnqvxfc231ovczecukrw0dq"]
+    }
+  });
+  assert.deepEqual(Object.keys(state.channels), ["/@tenacioustrilobite"]);
+  assert.deepEqual(state.groups[0].channelIds, ["/@tenacioustrilobite"]);
+  assert.deepEqual(state.manualLabels["/@tenacioustrilobite"], ["relax"]);
+  assert.equal(state.channels["/@tenacioustrilobite"].description, "Old firearms");
+  assert.equal(state.channels["/@tenacioustrilobite"].channelId, "UCNqVXfC231oVcZEcUKrW0DQ");
+  assert.deepEqual(Core.unfiledChannelIds(state), []);
+});
+
+test("auto suggestions are revalidated against current unclassified channels", () => {
+  let state = Core.defaultState();
+  state.channels = {
+    "/@already": { id: "/@already", name: "Already", url: "https://www.youtube.com/@already" },
+    "/@waiting": { id: "/@waiting", name: "Waiting", url: "https://www.youtube.com/@waiting" }
+  };
+  state.groups.find((group) => group.id === "learning").channelIds = ["/@already"];
+  state = Core.applyStateOperation(state, { type: "apply-auto-suggestions", payload: { groups: [{ groupId: "relax", name: "放鬆", icon: "sparkles", color: "#ff6b8a", channelIds: ["/@already", "/@waiting"] }] } });
+  assert.deepEqual(state.groups.find((group) => group.id === "relax").channelIds, ["/@waiting"]);
+});
+
+test("full subscription reconciliation rejects an abnormal destructive shrink", () => {
+  const state = Core.defaultState();
+  state.channels = Object.fromEntries(Array.from({ length: 100 }, (_, index) => {
+    const id = `/@channel${index}`;
+    return [id, { id, name: `Channel ${index}`, url: `https://www.youtube.com${id}` }];
+  }));
+  const incoming = Array.from({ length: 40 }, (_, index) => ({ id: `/@channel${index}`, name: `Channel ${index}`, url: `https://www.youtube.com/@channel${index}` }));
+  assert.throws(() => Core.applyStateOperation(state, { type: "reconcile-subscription-scan", payload: { channels: incoming } }), (error) => error.code === "SCAN_SHRINK_GUARD");
+  const accepted = Core.applyStateOperation(state, { type: "reconcile-subscription-scan", payload: { channels: incoming, allowLargeRemoval: true } });
+  assert.equal(Object.keys(accepted.channels).length, 40);
+});
+
+test("subscription reconciliation merges handle and canonical records from scan evidence", () => {
+  const state = Core.normalizeState({
+    channels: {
+      "/@tenacioustrilobite": { id: "/@tenacioustrilobite", name: "Tenacious Trilobite", url: "https://www.youtube.com/@TenaciousTrilobite" },
+      "/channel/ucnqvxfc231ovczecukrw0dq": { id: "/channel/ucnqvxfc231ovczecukrw0dq", name: "Tenacious Trilobite", url: "https://www.youtube.com/channel/UCNqVXfC231oVcZEcUKrW0DQ" }
+    },
+    groups: [{ id: "lifestyle", name: "Lifestyle", icon: "sparkles", color: "#2dbd9b", channelIds: ["/channel/ucnqvxfc231ovczecukrw0dq"] }]
+  });
+  const next = Core.applyStateOperation(state, {
+    type: "reconcile-subscription-scan",
+    payload: { channels: [{ id: "/@tenacioustrilobite", url: "https://www.youtube.com/@TenaciousTrilobite", name: "Tenacious Trilobite", channelId: "UCNqVXfC231oVcZEcUKrW0DQ", aliases: ["/channel/UCNqVXfC231oVcZEcUKrW0DQ"] }] }
+  });
+  assert.deepEqual(Object.keys(next.channels), ["/@tenacioustrilobite"]);
+  assert.equal(next.channelAliases["/channel/ucnqvxfc231ovczecukrw0dq"], "/@tenacioustrilobite");
+  assert.deepEqual(next.groups[0].channelIds, ["/@tenacioustrilobite"]);
+  assert.deepEqual(Core.unfiledChannelIds(next), []);
+});
+
+test("subscription reconciliation preserves unresolved canonical-only records", () => {
+  const state = Core.normalizeState({
+    channels: {
+      "/@visible": { id: "/@visible", name: "Visible", url: "https://www.youtube.com/@visible" },
+      "/channel/ucunknownidentity000000": { id: "/channel/ucunknownidentity000000", name: "Unresolved", url: "https://www.youtube.com/channel/UCUnknownIdentity000000" }
+    },
+    groups: [{ id: "archive", name: "Archive", icon: "star", color: "#7c5cff", channelIds: ["/channel/ucunknownidentity000000"] }]
+  });
+  const next = Core.applyStateOperation(state, { type: "reconcile-subscription-scan", payload: { channels: [{ id: "/@visible", name: "Visible", url: "https://www.youtube.com/@visible" }] } });
+  assert.ok(next.channels["/channel/ucunknownidentity000000"]);
+  assert.deepEqual(next.groups[0].channelIds, ["/channel/ucunknownidentity000000"]);
+});
+
+test("channel metadata patches preserve newer membership changes", () => {
+  let state = Core.defaultState();
+  state.channels = { "/@one": { id: "/@one", name: "One", url: "https://www.youtube.com/@one" } };
+  state = Core.applyStateOperation(state, { type: "toggle-membership", payload: { channelId: "/@one", groupId: "learning", enabled: true } });
+  state = Core.applyStateOperation(state, { type: "patch-channels", payload: { updates: [{ id: "/@one", patch: { description: "Updated", recentTitles: ["New video"], profiledAt: 100, profileVersion: 5 } }] } });
+  assert.deepEqual(state.groups.find((group) => group.id === "learning").channelIds, ["/@one"]);
+  assert.equal(state.channels["/@one"].description, "Updated");
+});
+
+test("older asynchronous metadata patches cannot overwrite newer metadata", () => {
+  let state = Core.defaultState();
+  state.channels = { "/@one": { id: "/@one", name: "One", url: "https://www.youtube.com/@one", description: "Newest", profiledAt: 200 } };
+  state = Core.applyStateOperation(state, { type: "patch-channels", payload: { updates: [{ id: "/@one", patch: { description: "Stale", profiledAt: 100 } }] } });
+  assert.equal(state.channels["/@one"].description, "Newest");
+  assert.equal(state.channels["/@one"].profiledAt, 200);
 });

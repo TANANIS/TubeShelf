@@ -262,6 +262,7 @@ html.tubeshelf-hide-shorts ytd-mini-guide-renderer a[title="Shorts"],
 html.tubeshelf-hide-shorts ytd-guide-renderer a[aria-label="Shorts"],
 html.tubeshelf-hide-shorts ytd-mini-guide-renderer a[aria-label="Shorts"],
 html.tubeshelf-hide-shorts yt-tab-shape:has(a[href^="/shorts"]),
+html.tubeshelf-hide-shorts ytd-rich-shelf-renderer:has(a[href^="/shorts/"], [is-shorts]),
 html.tubeshelf-hide-shorts ytd-reel-shelf-renderer,
 html.tubeshelf-hide-shorts ytd-reel-item-renderer { display: none !important; }
 
