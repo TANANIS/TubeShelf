@@ -2,6 +2,8 @@
 
 TubeShelf 是一個可自行側載的 Chrome／Edge 擴充套件，功能概念來自 PocketTube，但程式與介面都是獨立製作。它不需要帳號、伺服器或付費方案，群組與頻道資料只保存在瀏覽器的 `chrome.storage.local`。
 
+<img src="outputs/store-assets/small-promo-440x280.png" alt="TubeShelf 宣傳圖" width="440">
+
 ## 已完成的功能
 
 - 把 TubeShelf 群組直接加入 YouTube 左側導覽列
@@ -49,6 +51,8 @@ TubeShelf 是一個可自行側載的 Chrome／Edge 擴充套件，功能概念�
 - 搜尋頻道、JSON 備份與還原
 - 全程本機儲存，沒有追蹤、雲端 AI 或雲端同步
 
+<img src="outputs/store-assets/screenshot-library-1280x800.png" alt="TubeShelf 管理中心書架" width="800">
+
 ## 安裝到 Chrome
 
 1. 開啟 `chrome://extensions/`。
@@ -71,6 +75,8 @@ Edge 的步驟相同，管理頁網址是 `edge://extensions/`。
 ### 選用：加入 YouTube 官方分類
 
 在 Google Cloud 專案啟用 YouTube Data API v3 並建立 API Key，接著到 TubeShelf「偏好設定」貼上 Key。之後更新頻道資料或執行自動整理時，TubeShelf 會把公開的 channel ID／video ID 傳送給 Google，取得頻道主題與影片類別；未設定時則完全使用本機字典。API Key 只存於 `chrome.storage.local` 的獨立欄位，不會跟著備份匯出。
+
+<img src="outputs/store-assets/screenshot-settings-en-1280x800.png" alt="TubeShelf 偏好設定（English）" width="800">
 
 ## 驗證
 
