@@ -50,6 +50,8 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
 
     await page.goto("http://127.0.0.1:8766/extension/popup/popup.html?lang=en", { waitUntil: "networkidle" });
     assert.match(await page.locator("body").innerText(), /Your subscriptions, organized your way/);
+    assert.equal(await page.locator(".support-link span:last-child").innerText(), "Support TubeShelf · Buy me a coffee ↗");
+    assert.equal(await page.locator(".support-link").getAttribute("href"), "https://buymeacoffee.com/tananis");
     assert.doesNotMatch(await page.locator("body").innerText(), /[\u3400-\u9fff]/);
 
     const content = page;

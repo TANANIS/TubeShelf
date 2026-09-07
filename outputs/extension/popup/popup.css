@@ -53,3 +53,5 @@ button { font: inherit; }
 .button:hover { filter: brightness(1.1); }
 .button.primary { border-color: transparent; color: white; background: linear-gradient(135deg, #8465ff, #6c4ce8); box-shadow: 0 10px 24px rgba(93,62,220,.25); }
 .button:disabled { opacity: .45; cursor: not-allowed; }
+.support-link { margin: 10px auto -7px; padding: 5px 8px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; color: #918c9c; font-size: 10px; text-decoration: none; }
+.support-link:hover, .support-link:focus-visible { color: #d8d1f7; background: rgba(124,92,255,.08); outline: none; }

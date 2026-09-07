@@ -25,7 +25,7 @@
 
 **[Install TubeShelf from the Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb)**
 
-**Manual package: [Download TubeShelf 1.18.3](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.18.3/outputs/TubeShelf-1.18.3.zip)**
+**Manual package: [Download TubeShelf 1.18.4](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.18.4/outputs/TubeShelf-1.18.4.zip)**
 
 ### Chrome
 
@@ -33,7 +33,7 @@ Install the extension directly from the [Chrome Web Store](https://chromewebstor
 
 For manual installation:
 
-1. Download `TubeShelf-1.18.3.zip` from the release link above.
+1. Download `TubeShelf-1.18.4.zip` from the release link above.
 2. Extract the ZIP file.
 3. Open `chrome://extensions/`.
 4. Enable **Developer mode**.

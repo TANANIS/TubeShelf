@@ -8,7 +8,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, "manifest.j
 
 test("manifest is MV3 and requests only the intended permissions", () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, "1.18.3");
+  assert.equal(manifest.version, "1.18.4");
   assert.deepEqual(manifest.permissions.sort(), ["storage"]);
   assert.deepEqual(manifest.host_permissions.sort(), ["https://www.googleapis.com/youtube/v3/*", "https://www.youtube.com/*"]);
 });
@@ -42,6 +42,13 @@ test("extension ships no remote executable scripts", () => {
     const html = fs.readFileSync(path.join(extensionRoot, file), "utf8");
     assert.doesNotMatch(html, /<script[^>]+src=["']https?:/i);
   });
+});
+
+test("popup donation link is transparent and opens safely in a new tab", () => {
+  const popupHtml = fs.readFileSync(path.join(extensionRoot, manifest.action.default_popup), "utf8");
+  assert.match(popupHtml, /href="https:\/\/buymeacoffee\.com\/tananis"/);
+  assert.match(popupHtml, /target="_blank"/);
+  assert.match(popupHtml, /rel="noopener noreferrer"/);
 });
 
 test("Shorts navigation and one-time onboarding fixes are included", () => {

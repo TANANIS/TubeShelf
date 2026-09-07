@@ -15,6 +15,7 @@
     "個頻道": "channels", "個已找到頻道": "channels found", "YouTube 內容來源": "YouTube content source",
     "首頁推薦": "Home recommendations", "YouTube 演算法": "YouTube algorithm", "訂閱內容": "Subscriptions",
     "TubeShelf 群組": "TubeShelf groups", "快速開啟": "Quick access", "＋ 新增群組": "+ New group",
+    "支持 TubeShelf｜請我喝杯咖啡 ↗": "Support TubeShelf · Buy me a coffee ↗",
     "正在確認 YouTube 頁面…": "Checking the YouTube page…", "請稍候": "Please wait",
     "更新訂閱內容": "Update subscriptions", "更新中…": "Updating…", "準備中…": "Starting…",
     "請重新載入擴充套件": "Reload the extension", "YouTube 群組": "YouTube group",
