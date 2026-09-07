@@ -129,6 +129,7 @@
     "投資與財經": "Finance and investing", "藝術與動畫": "Art and animation", "娛樂與影劇": "Entertainment and screen",
     "美食": "Food", "運動": "Sports", "汽機車": "Vehicles", "動物與寵物": "Animals and pets", "生活": "Lifestyle",
     "更改這個頻道的分類": "Change this channel's groups", "分類": "Groups", "選擇所屬群組": "Choose groups",
+    "收合 TubeShelf 群組": "Collapse TubeShelf groups", "展開 TubeShelf 群組": "Expand TubeShelf groups",
     "目前在未分類": "Currently unclassified", "訂閱後即可分類": "Subscribe to organize this channel",
     "管理全部群組 ↗": "Manage all groups ↗", "請先訂閱這個頻道，再加入群組": "Subscribe to this channel before adding it to a group",
     "已加入未分類，稍後可以選擇群組": "Added to Unclassified; you can choose a group anytime",

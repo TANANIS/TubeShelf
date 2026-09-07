@@ -5,7 +5,8 @@
     <base href="/">
     <link rel="stylesheet" href="/extension/content/content.css">
     <style>
-      body { margin: 32px; color: #f1f1f1; background: #0f0f0f; font-family: Arial, sans-serif; }
+      body { margin: 32px; color: #0f0f0f; background: #fff; font-family: Arial, sans-serif; }
+      html[dark] body { color: #f1f1f1; background: #0f0f0f; }
       ytd-rich-section-renderer, ytd-rich-shelf-renderer { display: block; padding: 12px; }
     </style>
     <script>
@@ -16,7 +17,15 @@
             get: async () => ({ tubeShelfState: {
               version: 14,
               revision: 0,
-              groups: [{ id: "lifestyle", name: "Lifestyle", icon: "sparkles", color: "#2dbd9b", channelIds: ["/@tenacioustrilobite"] }],
+              groups: [
+                { id: "lifestyle", name: "Lifestyle", icon: "sparkles", color: "#2dbd9b", channelIds: ["/@tenacioustrilobite"] },
+                { id: "long-form", name: "Long form essays", icon: "book", color: "#7c5cff", channelIds: [] },
+                { id: "development", name: "Software development", icon: "technology", color: "#4f8cff", channelIds: [] },
+                { id: "documentary", name: "Documentary", icon: "news", color: "#f0a44b", channelIds: [] },
+                { id: "animation", name: "Animation", icon: "art", color: "#ee6fa9", channelIds: [] },
+                { id: "tabletop", name: "Tabletop games", icon: "game", color: "#2dbd9b", channelIds: [] },
+                { id: "music-live", name: "Live music", icon: "music", color: "#d16bea", channelIds: [] }
+              ],
               channels: {
                 "/@tenacioustrilobite": { id: "/@tenacioustrilobite", name: "Tenacious Trilobite", url: "https://www.youtube.com/@TenaciousTrilobite" },
                 "/@waiting": { id: "/@waiting", name: "Waiting Channel", url: "https://www.youtube.com/@waiting" }
@@ -36,10 +45,12 @@
     </script>
   </head>
   <body>
+    <ytd-guide-renderer><div id="sections"></div></ytd-guide-renderer>
     <ytd-browse page-subtype="subscriptions"><div id="primary"><main id="feed">
       <ytd-rich-section-renderer id="regular-shelf"><h2>Latest</h2><a href="/watch?v=regular">Regular video</a></ytd-rich-section-renderer>
-      <ytd-rich-item-renderer id="categorized-card"><yt-lockup-view-model><a href="/@TenaciousTrilobite">Tenacious Trilobite</a></yt-lockup-view-model></ytd-rich-item-renderer>
-      <ytd-rich-item-renderer id="unfiled-card"><yt-lockup-view-model><a href="/@waiting">Waiting Channel</a></yt-lockup-view-model></ytd-rich-item-renderer>
+      <ytd-rich-item-renderer id="categorized-card"><yt-lockup-view-model><yt-lockup-metadata-view-model><h3><a href="/watch?v=categorized">Categorized video</a></h3><yt-content-metadata-view-model><div class="ytContentMetadataViewModelMetadataRow"><a href="/@TenaciousTrilobite">Tenacious Trilobite</a></div><div class="ytContentMetadataViewModelMetadataRow">12K views · today</div></yt-content-metadata-view-model></yt-lockup-metadata-view-model></yt-lockup-view-model></ytd-rich-item-renderer>
+      <ytd-rich-item-renderer id="unfiled-card"><yt-lockup-view-model><yt-lockup-metadata-view-model><h3><a href="/watch?v=waiting">Waiting video</a></h3><yt-content-metadata-view-model><div class="ytContentMetadataViewModelMetadataRow"><a href="/@waiting">Waiting Channel</a></div><div class="ytContentMetadataViewModelMetadataRow">3K views · yesterday</div></yt-content-metadata-view-model></yt-lockup-metadata-view-model></yt-lockup-view-model></ytd-rich-item-renderer>
+      <ytd-rich-item-renderer id="unknown-card"><yt-lockup-view-model><yt-lockup-metadata-view-model><h3><a href="/watch?v=unknown">Unknown video</a></h3><yt-content-metadata-view-model><div class="ytContentMetadataViewModelMetadataRow"><a href="/@not-in-state">Unknown Channel</a></div><div class="ytContentMetadataViewModelMetadataRow">1K views · last week</div></yt-content-metadata-view-model></yt-lockup-metadata-view-model></yt-lockup-view-model></ytd-rich-item-renderer>
     </main></div></ytd-browse>
     <script src="/extension/shared.js"></script>
     <script src="/extension/content/content.js"></script>

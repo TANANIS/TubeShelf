@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" dark>
   <head>
     <meta charset="utf-8">
     <base href="/">
     <link rel="canonical" href="https://www.youtube.com/channel/UCMattsCanonical">
+    <link rel="stylesheet" href="/extension/content/content.css">
     <style>
       body { margin: 40px; color: #f1f1f1; background: #0f0f0f; font-family: Arial, sans-serif; }
       yt-page-header-view-model, .ytPageHeaderViewModelHeadlineInfo, yt-flexible-actions-view-model { display: block; }
@@ -29,6 +30,11 @@
         settings: { blockHome: false, hideShorts: false, hideSecondary: false, disableAutoplay: false, hideWatched: false, compactMode: false, onboardingComplete: true, language: "en" }
       };
       globalThis.__getStoredState = () => structuredClone(storedState);
+      globalThis.__setStoredState = (next) => {
+        const oldValue = structuredClone(storedState);
+        storedState = structuredClone(next);
+        listeners.forEach((listener) => listener({ tubeShelfState: { oldValue, newValue: structuredClone(storedState) } }, "local"));
+      };
       globalThis.chrome = {
         storage: {
           local: {
@@ -52,6 +58,7 @@
   <body>
     <yt-page-header-view-model>
       <a href="/@mattsgamenight"><h1>Matt's Game Night</h1></a>
+      <yt-content-metadata-view-model></yt-content-metadata-view-model>
       <div class="ytPageHeaderViewModelHeadlineInfo">
         <yt-flexible-actions-view-model>
           <div class="ytFlexibleActionsViewModelAction">
@@ -61,7 +68,16 @@
         </yt-flexible-actions-view-model>
       </div>
     </yt-page-header-view-model>
+    <yt-lockup-view-model id="unrelated-video"><yt-content-metadata-view-model><div class="ytContentMetadataViewModelMetadataRow">Unrelated video metadata</div></yt-content-metadata-view-model></yt-lockup-view-model>
     <script src="/extension/shared.js"></script>
     <script src="/extension/content/content.js"></script>
+    <script>
+      setTimeout(() => {
+        const row = document.createElement("div");
+        row.className = "ytContentMetadataViewModelMetadataRow";
+        row.textContent = "@mattsgamenight · 42K subscribers";
+        document.querySelector("yt-content-metadata-view-model").append(row);
+      }, 80);
+    </script>
   </body>
 </html>

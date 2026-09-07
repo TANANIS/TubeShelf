@@ -11,12 +11,13 @@
   let homeRedirecting = false;
   let shortsRedirecting = false;
   const VIDEO_CARD_SELECTOR = "ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-channel-renderer, ytd-compact-video-renderer, yt-lockup-view-model";
-  const STRUCTURE_SELECTOR = 'ytd-guide-renderer, ytd-mini-guide-renderer, ytd-browse[page-subtype="subscriptions"], ytd-watch-flexy, yt-page-header-view-model, yt-page-header-renderer, yt-flexible-actions-view-model, yt-subscribe-button-view-model';
+  const STRUCTURE_SELECTOR = 'ytd-guide-renderer, ytd-mini-guide-renderer, ytd-browse[page-subtype="subscriptions"], ytd-watch-flexy, yt-page-header-view-model, yt-page-header-renderer, yt-content-metadata-view-model, .ytContentMetadataViewModelMetadataRow, yt-flexible-actions-view-model, yt-subscribe-button-view-model';
   const pendingCards = new Set();
   let pendingFullRefresh = false;
   let pendingStructureRefresh = false;
   let trackedSubscription = { channelId: "", subscribed: null };
   let subscriptionSyncTimer = null;
+  let guideCollapsed = true;
   const scanIdentityByAlias = new Map();
   const IDENTITY_BRIDGE_SOURCE = "tubeshelf-identity-bridge";
 
@@ -193,10 +194,49 @@
     return subscribe?.closest(".ytFlexibleActionsViewModelAction") || subscribe || null;
   }
 
+  function currentChannelRecordId(channel) {
+    const identities = [
+      channel?.id,
+      channel?.url,
+      ...(channel?.aliasIds || []),
+      channel?.channelId ? `/channel/${channel.channelId}` : ""
+    ];
+    return identities.map((identity) => Core.resolveChannelRecordId(state, identity)).find(Boolean) || "";
+  }
+
+  function classificationBadges(groups) {
+    return groups.length
+      ? groups.map((group) => `<span class="ts-channel-classification-group"><span class="ts-channel-classification-dot" style="background:${group.color}"></span>${escapeHtml(group.name)}</span>`).join("")
+      : `<span class="ts-channel-classification-group ts-unfiled">${escapeHtml(Core.translateUiText("未分類", currentLanguage()))}</span>`;
+  }
+
+  function renderCurrentChannelClassification(channel) {
+    const existing = document.getElementById("tubeshelf-channel-classification");
+    const recordId = currentChannelRecordId(channel);
+    const pageHeader = document.querySelector("yt-page-header-view-model, yt-page-header-renderer, ytd-c4-tabbed-header-renderer");
+    const rows = [...(pageHeader?.querySelectorAll("yt-content-metadata-view-model .ytContentMetadataViewModelMetadataRow, .ytContentMetadataViewModelMetadataRow") || [])]
+      .filter((row) => row.getClientRects().length);
+    const metadataRow = rows.at(-1) || null;
+    if (!recordId || !metadataRow) { existing?.remove(); return; }
+
+    const groups = Core.groupForChannel(state, recordId);
+    const signature = JSON.stringify([recordId, currentLanguage(), groups.map((group) => [group.id, group.name, group.color])]);
+    const classification = existing || document.createElement("div");
+    classification.id = "tubeshelf-channel-classification";
+    if (classification.previousElementSibling !== metadataRow) metadataRow.insertAdjacentElement("afterend", classification);
+    if (classification.dataset.signature === signature) return;
+    classification.dataset.signature = signature;
+    const label = Core.translateUiText("分類", currentLanguage());
+    classification.innerHTML = `<span class="ts-channel-classification-label">${escapeHtml(label)}</span><span class="ts-channel-classification-groups">${classificationBadges(groups)}</span>`;
+  }
+
   function renderCurrentChannelControl() {
     const channel = currentChannelFromPage();
+    renderCurrentChannelClassification(channel);
     const host = currentControlHost();
-    if (!channel || !host) { document.getElementById("tubeshelf-channel-control")?.remove(); return; }
+    const recordId = currentChannelRecordId(channel);
+    const subscribed = currentSubscriptionStatus();
+    if (!channel || !host || !recordId || subscribed === false) { document.getElementById("tubeshelf-channel-control")?.remove(); return; }
     let control = document.getElementById("tubeshelf-channel-control");
     if (!control) {
       control = document.createElement("div");
@@ -206,18 +246,16 @@
     } else if (control.previousElementSibling !== host) {
       host.insertAdjacentElement("afterend", control);
     }
-    const subscribed = currentSubscriptionStatus();
     const memberships = new Set(Core.groupForChannel(state, channel.id).map((group) => group.id));
     const signature = JSON.stringify([channel.id, channel.name, subscribed, [...memberships], state.groups.map((group) => [group.id, group.name, group.color])]);
     if (control.dataset.signature === signature) return;
     const wasOpen = control.classList.contains("ts-current-open");
     control.dataset.signature = signature;
     control.dataset.channelId = channel.id;
-    const canOrganize = subscribed === true || Boolean(state.channels[channel.id]);
     const options = state.groups.length
-      ? state.groups.map((group) => `<label class="ts-current-option"><input type="checkbox" data-ts-current-group="${escapeHtml(group.id)}" ${memberships.has(group.id) ? "checked" : ""} ${canOrganize ? "" : "disabled"}><span class="ts-current-dot" style="background:${group.color}"></span><span>${escapeHtml(group.name)}</span></label>`).join("")
+      ? state.groups.map((group) => `<label class="ts-current-option"><input type="checkbox" data-ts-current-group="${escapeHtml(group.id)}" ${memberships.has(group.id) ? "checked" : ""}><span class="ts-current-dot" style="background:${group.color}"></span><span>${escapeHtml(group.name)}</span></label>`).join("")
       : '<span class="ts-current-empty">尚未建立群組</span>';
-    control.innerHTML = `<button class="ts-current-trigger" type="button" aria-expanded="${wasOpen}" title="更改這個頻道的分類"><span>${Core.iconSvg("book", "currentColor", 15)}</span><span>分類</span></button><div class="ts-current-menu"><strong>${escapeHtml(channel.name)}</strong><small>${canOrganize ? (memberships.size ? "選擇所屬群組" : "目前在未分類") : "訂閱後即可分類"}</small><div>${options}</div><button data-ts-current-manage type="button">管理全部群組 ↗</button></div>`;
+    control.innerHTML = `<button class="ts-current-trigger" type="button" aria-expanded="${wasOpen}" title="更改這個頻道的分類"><span>${Core.iconSvg("book", "currentColor", 15)}</span><span>分類</span></button><div class="ts-current-menu"><strong>${escapeHtml(channel.name)}</strong><small>${memberships.size ? "選擇所屬群組" : "目前在未分類"}</small><div>${options}</div><button data-ts-current-manage type="button">管理全部群組 ↗</button></div>`;
     control.classList.toggle("ts-current-open", wasOpen);
     localizeExtensionUi(control);
   }
@@ -432,13 +470,21 @@
     const guide = document.getElementById("tubeshelf-guide-section");
     if (guide && guide.dataset.signature !== signature) {
       guide.dataset.signature = signature;
-      guide.innerHTML = `<div class="ts-guide-heading"><span>TubeShelf 群組</span><span class="ts-guide-actions"><button data-ts-action="update-subscriptions" type="button" title="更新訂閱內容" aria-label="更新訂閱內容">↻</button><button data-ts-action="manage" type="button" title="管理群組" aria-label="管理 TubeShelf 群組">＋</button></span></div><div class="ts-guide-list">${groupButtons("ts-guide-item")}</div>`;
+      guide.innerHTML = `<div class="ts-guide-heading"><span>TubeShelf 群組</span><span class="ts-guide-actions"><button class="ts-guide-toggle" data-ts-action="toggle-guide" type="button"><span aria-hidden="true">▴</span></button><button data-ts-action="update-subscriptions" type="button" title="更新訂閱內容" aria-label="更新訂閱內容">↻</button><button data-ts-action="manage" type="button" title="管理群組" aria-label="管理 TubeShelf 群組">＋</button></span></div><div class="ts-guide-list">${groupButtons("ts-guide-item")}</div>`;
       localizeExtensionUi(guide);
+    }
+    if (guide) {
+      guide.classList.toggle("ts-collapsed", guideCollapsed);
+      const toggle = guide.querySelector(".ts-guide-toggle");
+      const toggleLabel = Core.translateUiText(guideCollapsed ? "展開 TubeShelf 群組" : "收合 TubeShelf 群組", currentLanguage());
+      toggle?.setAttribute("aria-expanded", String(!guideCollapsed));
+      toggle?.setAttribute("title", toggleLabel);
+      toggle?.setAttribute("aria-label", toggleLabel);
     }
     const toolbar = document.getElementById("tubeshelf-toolbar");
     if (toolbar && toolbar.dataset.signature !== signature) {
       toolbar.dataset.signature = signature;
-      toolbar.innerHTML = `<div class="ts-toolbar-brand"><span>${Core.iconSvg("book", "currentColor", 15)}</span><strong>TubeShelf</strong></div><div class="ts-toolbar-groups">${groupButtons("ts-toolbar-chip")}</div><div class="ts-toolbar-tools"><button class="ts-toolbar-action" data-ts-action="manage" type="button" title="開啟 TubeShelf" aria-label="開啟 TubeShelf 群組與設定">⚙</button></div>`;
+      toolbar.innerHTML = `<div class="ts-toolbar-groups">${groupButtons("ts-toolbar-chip")}</div><div class="ts-toolbar-tools"><button class="ts-toolbar-action" data-ts-action="manage" type="button" title="開啟 TubeShelf" aria-label="開啟 TubeShelf 群組與設定">⚙</button></div>`;
       localizeExtensionUi(toolbar);
     }
     renderCurrentChannelControl();
@@ -454,6 +500,11 @@
     }
     if (setting) {
       await changeSetting(setting, !state.settings[setting]);
+      return;
+    }
+    if (action === "toggle-guide") {
+      guideCollapsed = !guideCollapsed;
+      renderIntegratedControls();
       return;
     }
     if (action === "manage") openPanel();
@@ -494,6 +545,23 @@
     const nameNode = card.querySelector("#text, #channel-title, #channel-name, yt-formatted-string.ytd-channel-name");
     const avatar = card.querySelector("#avatar img, yt-img-shadow img")?.src || "";
     return enrichChannelIdentity({ id, url: link.href, name: nameNode?.textContent?.trim() || link.textContent?.trim() || id, avatar });
+  }
+
+  function renderCardClassification(card, channel, recordId) {
+    const existing = card.querySelector(":scope .tubeshelf-card-classification");
+    const metadata = card.querySelector("yt-lockup-metadata-view-model yt-content-metadata-view-model, yt-content-metadata-view-model");
+    const rows = [...(metadata?.querySelectorAll(":scope > .ytContentMetadataViewModelMetadataRow") || [])];
+    const metadataRow = rows.at(-1) || null;
+    if (!channel || !recordId || !metadataRow) { existing?.remove(); return; }
+
+    const groups = Core.groupForChannel(state, recordId);
+    const signature = JSON.stringify([recordId, currentLanguage(), groups.map((group) => [group.id, group.name, group.color])]);
+    const classification = existing || document.createElement("div");
+    classification.className = "tubeshelf-card-classification";
+    if (classification.previousElementSibling !== metadataRow) metadataRow.insertAdjacentElement("afterend", classification);
+    if (classification.dataset.signature === signature) return;
+    classification.dataset.signature = signature;
+    classification.innerHTML = `<span class="ts-channel-classification-label">${escapeHtml(Core.translateUiText("分類", currentLanguage()))}</span><span class="ts-channel-classification-groups">${classificationBadges(groups)}</span>`;
   }
 
   function isWatchedCard(card) {
@@ -634,6 +702,7 @@
     applyDistractionControls(cards);
     if (!isSubscriptionsPage()) {
       (cards || $$('.tubeshelf-hidden')).forEach((card) => card.classList.remove("tubeshelf-hidden"));
+      $$(".tubeshelf-card-classification").forEach((classification) => classification.remove());
       return;
     }
     const group = ["all", "unfiled"].includes(activeGroupId) ? null : state.groups.find((item) => item.id === activeGroupId);
@@ -643,6 +712,7 @@
       let hidden = false;
       const channel = findChannelInCard(card);
       const channelId = channel ? Core.resolveChannelRecordId(state, channel.id) || channel.id : "";
+      renderCardClassification(card, channel, channel ? Core.resolveChannelRecordId(state, channel.id) : "");
       if (allowed && (!channelId || !allowed.has(channelId))) hidden = true;
       if (state.settings.hideWatched) {
         if (isWatchedCard(card)) hidden = true;
@@ -683,7 +753,7 @@
       }
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue;
-        if (node.closest("#tubeshelf-panel, #tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-launcher, #tubeshelf-backdrop, #tubeshelf-scan-progress")) continue;
+        if (node.closest("#tubeshelf-panel, #tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-launcher, #tubeshelf-backdrop, #tubeshelf-scan-progress, .tubeshelf-card-classification")) continue;
         collectCards(node, cards);
         if (node.matches(STRUCTURE_SELECTOR) || node.querySelector(STRUCTURE_SELECTOR) || node.closest("ytd-subscribe-button-renderer, yt-subscribe-button-view-model") || node.querySelector("ytd-subscribe-button-renderer, yt-subscribe-button-view-model")) structure = true;
       }

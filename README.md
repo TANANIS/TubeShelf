@@ -17,11 +17,17 @@
 
 ## Download & install
 
-**Latest packaged version: [Download TubeShelf 1.18.0](https://github.com/TANANIS/TubeShelf/raw/refs/heads/main/outputs/TubeShelf-1.18.0.zip)**
+**[Install TubeShelf from the Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb)**
+
+**Manual package: [Download TubeShelf 1.18.3](https://github.com/TANANIS/TubeShelf/releases/download/v1.18.3/TubeShelf-1.18.3.zip)**
 
 ### Chrome
 
-1. Download `TubeShelf-1.18.0.zip` from the link above.
+Install the extension directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb).
+
+For manual installation:
+
+1. Download `TubeShelf-1.18.3.zip` from the release link above.
 2. Extract the ZIP file.
 3. Open `chrome://extensions/`.
 4. Enable **Developer mode**.
@@ -49,9 +55,11 @@ Instead of replacing YouTube, TubeShelf adds a lightweight organization layer di
 
 - Create custom groups with your own names, colors, and icons.
 - Put the same channel in multiple groups.
-- Switch groups directly from YouTube's sidebar or Subscriptions page.
+- Switch groups directly from YouTube's sidebar or Subscriptions page; the sidebar group list starts collapsed to save space.
+- See each stored channel's group directly beneath its video preview metadata in the Subscriptions feed.
 - Classify a channel beside the Subscribe button on channel and watch pages.
 - Newly subscribed channels can enter **Unclassified** automatically; unsubscribed channels are removed from TubeShelf automatically.
+- TubeShelf's YouTube-integrated controls follow YouTube's light and dark themes.
 
 ### Reduce recommendation-driven distractions
 

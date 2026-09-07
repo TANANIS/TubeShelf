@@ -61,6 +61,12 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     const repairedIdentity = await content.evaluate(() => globalThis.__getStoredState());
     assert.deepEqual(Object.keys(repairedIdentity.channels), ["/@mattsgamenight"]);
     assert.deepEqual(repairedIdentity.groups.find((group) => group.id === "gaming").channelIds, ["/@mattsgamenight"]);
+    const classification = content.locator("#tubeshelf-channel-classification");
+    await classification.waitFor({ state: "visible" });
+    assert.equal(await classification.evaluate((node) => node.previousElementSibling?.classList.contains("ytContentMetadataViewModelMetadataRow")), true);
+    assert.equal(await classification.evaluate((node) => node.closest("yt-page-header-view-model") !== null), true);
+    assert.equal(await classification.locator(".ts-channel-classification-label").innerText(), "Groups");
+    assert.equal(await classification.locator(".ts-channel-classification-group").innerText(), "Gaming");
     assert.equal(await control.locator(".ts-current-trigger").innerText(), "Groups");
     assert.equal(await control.evaluate((node) => node.previousElementSibling?.classList.contains("ytFlexibleActionsViewModelAction")), true);
     assert.equal(await control.evaluate((node) => node.parentElement?.tagName), "YT-FLEXIBLE-ACTIONS-VIEW-MODEL");
@@ -72,7 +78,71 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     await learningMembership.click();
     assert.equal(await control.locator('[data-ts-current-group="learning"]').isChecked(), true);
 
+    await content.evaluate(() => {
+      const next = globalThis.__getStoredState();
+      next.revision += 1;
+      next.channels = {};
+      next.channelAliases = {};
+      next.groups = next.groups.map((group) => ({ ...group, channelIds: [] }));
+      globalThis.__setStoredState(next);
+      history.replaceState({}, "", "/@not-subscribed");
+      document.querySelector('link[rel="canonical"]').href = "https://www.youtube.com/@not-subscribed";
+      document.querySelector("yt-page-header-view-model > a").href = "/@not-subscribed";
+      document.querySelector("yt-page-header-view-model h1").textContent = "Not Subscribed";
+      const subscribe = document.querySelector("yt-subscribe-button-view-model");
+      subscribe.removeAttribute("subscribed");
+      const button = subscribe.querySelector("button");
+      button.textContent = "Subscribe";
+      button.setAttribute("aria-label", "Subscribe to Not Subscribed");
+      document.dispatchEvent(new Event("yt-navigate-finish"));
+    });
+    await content.waitForFunction(() => !document.querySelector("#tubeshelf-channel-control") && !document.querySelector("#tubeshelf-channel-classification"));
+
+    await content.setViewportSize({ width: 700, height: 800 });
     await content.goto("http://127.0.0.1:8766/tests/subscriptions-harness.html", { waitUntil: "networkidle" });
+    const guide = content.locator("#tubeshelf-guide-section");
+    const guideToggle = guide.locator(".ts-guide-toggle");
+    await guide.waitFor({ state: "visible" });
+    assert.equal(await guideToggle.getAttribute("aria-expanded"), "false");
+    assert.equal(await guide.locator(".ts-guide-list").isVisible(), false);
+    await guideToggle.click();
+    assert.equal(await guide.locator(".ts-guide-list").isVisible(), true);
+    assert.equal(await guideToggle.getAttribute("aria-expanded"), "true");
+    await guideToggle.click();
+    assert.equal(await guide.locator(".ts-guide-list").isVisible(), false);
+    const toolbarGroups = content.locator("#tubeshelf-toolbar .ts-toolbar-groups");
+    assert.equal(await content.locator("#tubeshelf-toolbar .ts-toolbar-brand").count(), 0);
+    assert.equal(await toolbarGroups.evaluate((node) => getComputedStyle(node).flexWrap), "wrap");
+    assert.equal(await toolbarGroups.locator(".ts-toolbar-chip").evaluateAll((chips) => chips.at(-1).offsetTop > chips[0].offsetTop), true);
+    assert.equal(await content.locator("#tubeshelf-toolbar").evaluate((node) => getComputedStyle(node).boxSizing), "border-box");
+    assert.equal(await content.locator("#tubeshelf-toolbar").evaluate((node) => getComputedStyle(node).minHeight), "52px");
+    const lightTheme = await content.evaluate(() => ({
+      toolbarBackground: getComputedStyle(document.querySelector("#tubeshelf-toolbar")).backgroundColor,
+      toolbarText: getComputedStyle(document.querySelector("#tubeshelf-toolbar")).color,
+      panelBackground: getComputedStyle(document.querySelector("#tubeshelf-panel")).backgroundColor,
+      panelText: getComputedStyle(document.querySelector("#tubeshelf-panel")).color
+    }));
+    await content.evaluate(() => document.documentElement.setAttribute("dark", ""));
+    const darkTheme = await content.evaluate(() => ({
+      toolbarBackground: getComputedStyle(document.querySelector("#tubeshelf-toolbar")).backgroundColor,
+      toolbarText: getComputedStyle(document.querySelector("#tubeshelf-toolbar")).color,
+      panelBackground: getComputedStyle(document.querySelector("#tubeshelf-panel")).backgroundColor,
+      panelText: getComputedStyle(document.querySelector("#tubeshelf-panel")).color
+    }));
+    assert.equal(lightTheme.toolbarBackground, "rgb(242, 242, 242)");
+    assert.equal(lightTheme.toolbarText, "rgb(15, 15, 15)");
+    assert.equal(lightTheme.panelText, "rgb(15, 15, 15)");
+    assert.equal(darkTheme.toolbarBackground, "rgb(33, 33, 33)");
+    assert.equal(darkTheme.toolbarText, "rgb(241, 241, 241)");
+    assert.notEqual(lightTheme.panelBackground, darkTheme.panelBackground);
+    await content.evaluate(() => document.documentElement.removeAttribute("dark"));
+    const categorizedPreview = content.locator("#categorized-card .tubeshelf-card-classification");
+    const unfiledPreview = content.locator("#unfiled-card .tubeshelf-card-classification");
+    await categorizedPreview.waitFor({ state: "visible" });
+    assert.equal(await categorizedPreview.evaluate((node) => node.previousElementSibling?.classList.contains("ytContentMetadataViewModelMetadataRow")), true);
+    assert.match(await categorizedPreview.innerText(), /Groups\s+Lifestyle/);
+    assert.match(await unfiledPreview.innerText(), /Groups\s+Unclassified/);
+    assert.equal(await content.locator("#unknown-card .tubeshelf-card-classification").count(), 0);
     const shortsShelf = content.locator("#shorts-shelf");
     await shortsShelf.waitFor({ state: "attached" });
     assert.equal(await shortsShelf.evaluate((node) => getComputedStyle(node).display), "none");
@@ -87,7 +157,7 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     const scannedIdentity = await content.evaluate(() => globalThis.__capturedIdentities[0]);
     assert.equal(scannedIdentity.channelId, "UCNqVXfC231oVcZEcUKrW0DQ");
     assert.equal(scannedIdentity.alias, "/@TenaciousTrilobite");
-    console.log("UI smoke checks passed: English UI, group merge, channel identity repair, scan identity extraction, unfiled filtering, synchronized group URL, and dynamic Shorts hiding.");
+    console.log("UI smoke checks passed: English UI, group merge, channel header and preview-card classification metadata, unsubscribed control removal, guide collapse, brand-free wrapped toolbar groups, html[dark] YouTube theme following, scan identity extraction, unfiled filtering, synchronized group URL, and dynamic Shorts hiding.");
   } finally {
     await browser.close();
   }
