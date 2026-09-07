@@ -20,6 +20,42 @@
   let guideCollapsed = true;
   const scanIdentityByAlias = new Map();
   const IDENTITY_BRIDGE_SOURCE = "tubeshelf-identity-bridge";
+  const OWN_UI_SELECTOR = '#tubeshelf-panel, #tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-launcher, #tubeshelf-backdrop, #tubeshelf-scan-progress, #tubeshelf-channel-control, #tubeshelf-channel-classification, .tubeshelf-card-classification';
+  let membershipsByChannel = new Map();
+  let unfiledIds = [];
+  let stateLoaded = false;
+  let scanGeneration = 0;
+  let autoplayRestore = null;
+  let startupScanTimer = null;
+  document.documentElement.classList.add("tubeshelf-disabled");
+
+  function publishPowerState() {
+    window.postMessage({ source: IDENTITY_BRIDGE_SOURCE, type: "SET_ENABLED", enabled: state.settings.enabled }, location.origin);
+  }
+
+  function pauseIntegration() {
+    observer.disconnect();
+    clearTimeout(scanTimer);
+    clearTimeout(subscriptionSyncTimer);
+    clearTimeout(startupScanTimer);
+    clearTimeout(toast.timer);
+    scanTimer = null;
+    pendingCards.clear();
+    pendingFullRefresh = false;
+    pendingStructureRefresh = false;
+    scanGeneration++;
+    scanIdentityByAlias.clear();
+    trackedSubscription = { channelId: "", subscribed: null };
+    homeRedirecting = shortsRedirecting = false;
+    closePanel();
+    document.documentElement.classList.add("tubeshelf-disabled");
+    document.documentElement.classList.remove("tubeshelf-block-home", "tubeshelf-hide-shorts", "tubeshelf-hide-secondary", "tubeshelf-integrated");
+    $$(".tubeshelf-hidden, .tubeshelf-shorts-hidden").forEach((card) => card.classList.remove("tubeshelf-hidden", "tubeshelf-shorts-hidden"));
+    $$("#tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-channel-control, #tubeshelf-channel-classification, .tubeshelf-card-classification, #tubeshelf-scan-progress").forEach((node) => node.remove());
+    const autoplay = autoplayRestore?.deref();
+    autoplayRestore = null;
+    if (autoplay?.isConnected && autoplay.getAttribute("aria-checked") === "false") autoplay.click();
+  }
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -29,8 +65,20 @@
   function localizeExtensionUi(root) { Core.localizeDom(root, currentLanguage()); }
 
   function unfiledChannelIds() {
-    const filed = new Set(state.groups.flatMap((group) => group.channelIds));
-    return Object.keys(state.channels).filter((id) => !filed.has(id));
+    return unfiledIds;
+  }
+
+  function channelGroups(id) {
+    return membershipsByChannel.get(Core.resolveChannelRecordId(state, id) || id) || [];
+  }
+
+  function rebuildMembershipIndex() {
+    membershipsByChannel = new Map();
+    for (const group of state.groups) for (const id of group.channelIds) {
+      if (!membershipsByChannel.has(id)) membershipsByChannel.set(id, []);
+      membershipsByChannel.get(id).push(group);
+    }
+    unfiledIds = Object.keys(state.channels).filter((id) => !membershipsByChannel.has(id));
   }
 
   function registerScanIdentity(channelId, alias) {
@@ -48,7 +96,12 @@
   }
 
   window.addEventListener("message", (event) => {
+    if (event.source === window && event.origin === location.origin && event.data?.source === IDENTITY_BRIDGE_SOURCE && event.data?.type === "BRIDGE_READY") {
+      if (stateLoaded) publishPowerState();
+      return;
+    }
     if (event.source !== window || event.origin !== location.origin || event.data?.source !== IDENTITY_BRIDGE_SOURCE || event.data?.type !== "CHANNEL_IDENTITY") return;
+    if (!state.settings.enabled || location.pathname !== "/feed/channels") return;
     registerScanIdentity(event.data.channelId, event.data.alias);
   });
 
@@ -94,6 +147,7 @@
   async function readState() {
     const result = await chrome.storage.local.get(STORAGE_KEY);
     acceptState(result[STORAGE_KEY], true);
+    stateLoaded = true;
     return state;
   }
 
@@ -113,9 +167,11 @@
   }
 
   function acceptState(next, force = false) {
+    if (!force && Number.isSafeInteger(next?.revision) && next.revision <= state.revision) return false;
     const incoming = Core.normalizeState(next);
     if (!force && incoming.revision <= state.revision) return false;
     state = incoming;
+    rebuildMembershipIndex();
     if (!validGroupId(activeGroupId)) {
       activeGroupId = "all";
       if (isSubscriptionsPage()) {
@@ -128,10 +184,16 @@
   }
 
   function refreshFromState() {
+    publishPowerState();
+    if (!state.settings.enabled) { pauseIntegration(); return; }
+    document.documentElement.classList.remove("tubeshelf-disabled");
+    if (document.hidden) { pendingFullRefresh = true; pendingStructureRefresh = true; return; }
+    updateObservation();
     renderGroups();
     renderIntegratedControls();
     renderCurrentChannelControl();
     applyFilters();
+    scheduleSubscriptionSync();
   }
 
   async function commit(operation) {
@@ -219,7 +281,7 @@
     const metadataRow = rows.at(-1) || null;
     if (!recordId || !metadataRow) { existing?.remove(); return; }
 
-    const groups = Core.groupForChannel(state, recordId);
+    const groups = channelGroups(recordId);
     const signature = JSON.stringify([recordId, currentLanguage(), groups.map((group) => [group.id, group.name, group.color])]);
     const classification = existing || document.createElement("div");
     classification.id = "tubeshelf-channel-classification";
@@ -231,6 +293,12 @@
   }
 
   function renderCurrentChannelControl() {
+    if (!state.settings.enabled) return;
+    if (location.pathname !== "/watch" && !Core.channelKey(location.href)) {
+      document.getElementById("tubeshelf-channel-control")?.remove();
+      document.getElementById("tubeshelf-channel-classification")?.remove();
+      return;
+    }
     const channel = currentChannelFromPage();
     renderCurrentChannelClassification(channel);
     const host = currentControlHost();
@@ -246,7 +314,7 @@
     } else if (control.previousElementSibling !== host) {
       host.insertAdjacentElement("afterend", control);
     }
-    const memberships = new Set(Core.groupForChannel(state, channel.id).map((group) => group.id));
+    const memberships = new Set(channelGroups(channel.id).map((group) => group.id));
     const signature = JSON.stringify([channel.id, channel.name, subscribed, [...memberships], state.groups.map((group) => [group.id, group.name, group.color])]);
     if (control.dataset.signature === signature) return;
     const wasOpen = control.classList.contains("ts-current-open");
@@ -282,12 +350,14 @@
   }
 
   async function syncSubscriptionState() {
+    if (!state.settings.enabled) return;
     const channel = currentChannelFromPage();
     const subscribed = currentSubscriptionStatus();
     if (!channel || subscribed === null) return;
     const storedAliases = (channel.aliasIds || []).filter((id) => id !== channel.id && state.channels[id]);
     if (storedAliases.length) {
       await commit({ type: "coalesce-channel-identities", payload: { primaryChannel: channel, aliasIds: storedAliases } });
+      if (!state.settings.enabled) return;
     }
     if (trackedSubscription.channelId !== channel.id) {
       trackedSubscription = { channelId: channel.id, subscribed };
@@ -311,6 +381,7 @@
   }
 
   function scheduleSubscriptionSync() {
+    if (!state.settings.enabled) return;
     clearTimeout(subscriptionSyncTimer);
     subscriptionSyncTimer = setTimeout(() => syncSubscriptionState().catch(() => {}), 700);
   }
@@ -357,6 +428,7 @@
       <footer class="ts-panel-footer">
         <button class="ts-button" data-action="update-subscriptions">更新訂閱內容</button>
         <button class="ts-button ts-primary" data-action="manage">管理群組</button>
+        <div class="ts-support-card"><a class="ts-support-link" href="https://buymeacoffee.com/tananis" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">☕</span><span>支持與回饋 ↗</span></a><p>有問題想回報，或有功能想許願？</p><small>用一杯咖啡支持開發，也把你的想法留給我。</small></div>
       </footer>`;
 
     const toast = document.createElement("div");
@@ -383,6 +455,7 @@
   }
 
   function toast(message) {
+    if (!state.settings.enabled) return;
     const node = $("#ts-toast");
     if (!node) return;
     node.textContent = Core.translateUiText(message, currentLanguage());
@@ -392,6 +465,7 @@
   }
 
   function renderGroups() {
+    if (!state.settings.enabled) return;
     const host = $("#ts-groups");
     if (!host) return;
     const total = Object.keys(state.channels).length;
@@ -465,6 +539,7 @@
   }
 
   function renderIntegratedControls() {
+    if (!state.settings.enabled) return;
     mountIntegratedControls();
     const signature = integratedSignature();
     const guide = document.getElementById("tubeshelf-guide-section");
@@ -487,7 +562,6 @@
       toolbar.innerHTML = `<div class="ts-toolbar-groups">${groupButtons("ts-toolbar-chip")}</div><div class="ts-toolbar-tools"><button class="ts-toolbar-action" data-ts-action="manage" type="button" title="開啟 TubeShelf" aria-label="開啟 TubeShelf 群組與設定">⚙</button></div>`;
       localizeExtensionUi(toolbar);
     }
-    renderCurrentChannelControl();
   }
 
   async function onIntegratedClick(event) {
@@ -554,7 +628,7 @@
     const metadataRow = rows.at(-1) || null;
     if (!channel || !recordId || !metadataRow) { existing?.remove(); return; }
 
-    const groups = Core.groupForChannel(state, recordId);
+    const groups = channelGroups(recordId);
     const signature = JSON.stringify([recordId, currentLanguage(), groups.map((group) => [group.id, group.name, group.color])]);
     const classification = existing || document.createElement("div");
     classification.className = "tubeshelf-card-classification";
@@ -585,6 +659,7 @@
   }
 
   function renderScanProgress(count, done) {
+    if (!state.settings.enabled) return;
     let overlay = document.getElementById("tubeshelf-scan-progress");
     if (!overlay) {
       overlay = document.createElement("div");
@@ -598,6 +673,11 @@
   function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
   async function runSubscriptionUpdate() {
+    if (!state.settings.enabled) return;
+    const generation = ++scanGeneration;
+    const checkActive = () => {
+      if (!state.settings.enabled || generation !== scanGeneration) throw Object.assign(new Error("TubeShelf paused"), { code: "TUBESHELF_DISABLED" });
+    };
     const startedAt = Date.now();
     const found = new Map();
     let stableRounds = 0;
@@ -608,10 +688,12 @@
     renderScanProgress(0, false);
     try {
       for (let readyRound = 0; readyRound < 30; readyRound++) {
+        checkActive();
         if (document.querySelector("ytd-channel-renderer")) break;
         await wait(500);
       }
       for (let round = 0; round < 240; round++) {
+        checkActive();
         document.querySelectorAll("ytd-channel-renderer").forEach((card) => {
           const channel = findChannelInCard(card);
           if (channel) found.set(channel.id, channel);
@@ -630,10 +712,16 @@
       if (!found.size) throw new Error("No channels found");
       if (!reachedEnd) throw new Error("Subscription list did not reach a stable end");
       const scannedChannels = [...found.values()].map(enrichChannelIdentity);
+      checkActive();
       await commit({ type: "reconcile-subscription-scan", payload: { channels: scannedChannels } });
+      checkActive();
       renderScanProgress(found.size, true);
       await chrome.runtime.sendMessage({ type: "SUBSCRIPTION_UPDATE_COMPLETE", count: found.size });
     } catch (error) {
+      if (error?.code === "TUBESHELF_DISABLED") {
+        chrome.runtime.sendMessage({ type: "SUBSCRIPTION_UPDATE_FAILED", count: found.size, error: "TUBESHELF_DISABLED" }).catch(() => {});
+        return;
+      }
       renderScanProgress(found.size, false);
       const card = document.querySelector("#tubeshelf-scan-progress .ts-scan-card");
       const guarded = error?.code === "SCAN_SHRINK_GUARD";
@@ -657,6 +745,7 @@
   }
 
   function applyDistractionControls(cards = null) {
+    if (!state.settings.enabled) return;
     if (location.pathname !== lastPathname) {
       lastPathname = location.pathname;
       homeRedirecting = false;
@@ -694,11 +783,12 @@
 
     if (state.settings.disableAutoplay) {
       const autoplayToggle = document.querySelector('.ytp-autonav-toggle-button[aria-checked="true"]');
-      if (autoplayToggle instanceof HTMLElement) autoplayToggle.click();
+      if (autoplayToggle instanceof HTMLElement) { autoplayRestore = new WeakRef(autoplayToggle); autoplayToggle.click(); }
     }
   }
 
   function applyFilters(cards = null) {
+    if (!state.settings.enabled) return;
     applyDistractionControls(cards);
     if (!isSubscriptionsPage()) {
       (cards || $$('.tubeshelf-hidden')).forEach((card) => card.classList.remove("tubeshelf-hidden"));
@@ -711,8 +801,9 @@
     for (const card of candidates) {
       let hidden = false;
       const channel = findChannelInCard(card);
-      const channelId = channel ? Core.resolveChannelRecordId(state, channel.id) || channel.id : "";
-      renderCardClassification(card, channel, channel ? Core.resolveChannelRecordId(state, channel.id) : "");
+      const recordId = channel ? Core.resolveChannelRecordId(state, channel.id) : "";
+      const channelId = recordId || channel?.id || "";
+      renderCardClassification(card, channel, recordId);
       if (allowed && (!channelId || !allowed.has(channelId))) hidden = true;
       if (state.settings.hideWatched) {
         if (isWatchedCard(card)) hidden = true;
@@ -723,6 +814,7 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "OPEN_TUBESHELF") {
+      if (!state.settings.enabled) { sendResponse({ ok: false, disabled: true }); return; }
       if (["all", "unfiled"].includes(message.groupId) || state.groups.some((group) => group.id === message.groupId)) activeGroupId = message.groupId;
       if (message.groupId && !isSubscriptionsPage()) {
         location.assign(Core.subscriptionGroupUrl(activeGroupId));
@@ -745,36 +837,48 @@
   function collectMutationWork(mutations) {
     let structure = location.pathname !== lastPathname;
     const cards = new Set();
+    const trackCards = isSubscriptionsPage() || state.settings.hideShorts;
     for (const mutation of mutations) {
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+      if (target?.closest(OWN_UI_SELECTOR)) continue;
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      if (changedNodes.length && changedNodes.every((node) => node instanceof Element && node.matches(OWN_UI_SELECTOR))) continue;
+      if (mutation.type === "attributes" && mutation.attributeName === "style" && (!isSubscriptionsPage() || !state.settings.hideWatched || !target?.matches('#progress, [class*="Progress"], [class*="progress"]'))) continue;
       if (mutation.target instanceof Element && mutation.target.closest("ytd-subscribe-button-renderer, yt-subscribe-button-view-model")) structure = true;
-      if (mutation.target instanceof Element) {
+      if (trackCards && mutation.target instanceof Element) {
         const targetCard = canonicalCard(mutation.target);
         if (targetCard) cards.add(targetCard);
       }
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue;
-        if (node.closest("#tubeshelf-panel, #tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-launcher, #tubeshelf-backdrop, #tubeshelf-scan-progress, .tubeshelf-card-classification")) continue;
-        collectCards(node, cards);
-        if (node.matches(STRUCTURE_SELECTOR) || node.querySelector(STRUCTURE_SELECTOR) || node.closest("ytd-subscribe-button-renderer, yt-subscribe-button-view-model") || node.querySelector("ytd-subscribe-button-renderer, yt-subscribe-button-view-model")) structure = true;
+        if (node.closest(OWN_UI_SELECTOR)) continue;
+        if (trackCards) collectCards(node, cards);
+        if (!canonicalCard(node) && (node.matches(STRUCTURE_SELECTOR) || node.querySelector(STRUCTURE_SELECTOR) || node.closest("ytd-subscribe-button-renderer, yt-subscribe-button-view-model") || node.querySelector("ytd-subscribe-button-renderer, yt-subscribe-button-view-model"))) structure = true;
       }
     }
     return { cards, structure };
   }
 
-  function scheduleRefresh(delay = 180, options = {}) {
+  function scheduleRefresh(delay = 32, options = {}) {
+    if (!state.settings.enabled) return;
     if (options.full) pendingFullRefresh = true;
     if (options.structure) pendingStructureRefresh = true;
     options.cards?.forEach((card) => pendingCards.add(card));
-    clearTimeout(scanTimer);
+    if (document.hidden) { pendingFullRefresh = true; pendingCards.clear(); return; }
+    // Keep the first deadline: a busy feed must not postpone filtering indefinitely.
+    if (scanTimer !== null && delay !== 0) return;
+    if (scanTimer !== null) clearTimeout(scanTimer);
     scanTimer = setTimeout(() => {
+      scanTimer = null;
       const full = pendingFullRefresh;
       const structure = pendingStructureRefresh;
       const cards = full ? null : [...pendingCards].filter((card) => card.isConnected);
       pendingFullRefresh = false;
       pendingStructureRefresh = false;
       pendingCards.clear();
+      if (full) renderGroups();
       if (full || structure) renderIntegratedControls();
-      renderCurrentChannelControl();
+      if (full || structure) renderCurrentChannelControl();
       applyFilters(cards);
       if (structure) scheduleSubscriptionSync();
     }, delay);
@@ -782,27 +886,45 @@
 
   const observer = new MutationObserver((mutations) => {
     const work = collectMutationWork(mutations);
-    if (work.structure || work.cards.size) scheduleRefresh(180, work);
+    if (work.structure || work.cards.size) scheduleRefresh(32, work);
   });
 
   function updateObservation() {
     observer.disconnect();
-    if (!document.hidden && document.body) observer.observe(document.body, { childList: true, subtree: true });
+    if (state.settings.enabled && !document.hidden && document.body) {
+      const attributeFilter = ["href", "subscribed", "aria-pressed", "aria-checked"];
+      if (isSubscriptionsPage() && state.settings.hideWatched) attributeFilter.push("style");
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter });
+    }
+    if (document.hidden) {
+      clearTimeout(scanTimer);
+      scanTimer = null;
+      clearTimeout(subscriptionSyncTimer);
+      pendingCards.clear();
+      pendingFullRefresh = true;
+      pendingStructureRefresh = true;
+    }
   }
 
   async function init() {
     makeShell();
     await readState();
     syncActiveGroupFromLocation();
-    renderGroups();
-    renderIntegratedControls();
-    renderCurrentChannelControl();
+    refreshFromState();
     await syncSubscriptionState();
     applyFilters();
     updateObservation();
-    document.addEventListener("yt-navigate-finish", () => { syncActiveGroupFromLocation(); scheduleRefresh(0, { full: true, structure: true }); });
+    document.addEventListener("yt-navigate-finish", () => {
+      if (location.pathname !== "/feed/channels") scanIdentityByAlias.clear();
+      updateObservation();
+      pendingCards.clear();
+      syncActiveGroupFromLocation();
+      scheduleRefresh(0, { full: true, structure: true });
+    });
     window.addEventListener("hashchange", () => { syncActiveGroupFromLocation(); scheduleRefresh(0, { full: true }); });
     document.addEventListener("click", (event) => {
+      if (!state.settings.enabled) return;
+      if (event.isTrusted && event.target.closest(".ytp-autonav-toggle-button")) autoplayRestore = null;
       const button = event.target.closest("button");
       if (!button) return;
       const label = `${button.getAttribute("aria-label") || ""} ${button.textContent || ""}`;
@@ -812,7 +934,7 @@
       updateObservation();
       if (!document.hidden) scheduleRefresh(0, { full: true, structure: true });
     });
-    if (location.pathname === "/feed/channels" && location.hash === "#tubeshelf-update-subscriptions") setTimeout(runSubscriptionUpdate, 900);
+    if (state.settings.enabled && location.pathname === "/feed/channels" && location.hash === "#tubeshelf-update-subscriptions") startupScanTimer = setTimeout(runSubscriptionUpdate, 900);
   }
 
   init();

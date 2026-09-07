@@ -1,0 +1,74 @@
+{
+  "date": "2026-09-07T20:59:08.603Z",
+  "baselineVersion": "1.18.4",
+  "version": "1.18.5",
+  "synthetic": true,
+  "sourceHashes": {
+    "extension/shared.js": "7ac67bfd6759251fde47aa40a843a9b6fa93c91dc63fc02020da4a00a61edb31",
+    "extension/content/content.js": "e176f7fe5dcc741f831aba5704ea4521d5a3149d9723f15c41ae58156cbdfe78",
+    "extension/content/identity-bridge.js": "fad412dbb05ba4f917f3d2a22101c1d4277b6b2182c6185c934b08de42e10a70"
+  },
+  "runs": [
+    {
+      "mode": "baseline",
+      "channels": 500,
+      "cards": 200,
+      "filterMs": [
+        1073.2999999821186,
+        1687.2000000178814,
+        1779.199999988079
+      ],
+      "transientHeapDeltaBytes": 12416832,
+      "incrementalCalls": 2,
+      "idleExtraCalls": 0
+    },
+    {
+      "mode": "candidate",
+      "channels": 500,
+      "cards": 200,
+      "filterMs": [
+        4.800000011920929,
+        2.199999988079071,
+        2.2000000178813934
+      ],
+      "transientHeapDeltaBytes": 119928,
+      "incrementalCalls": 1,
+      "idleExtraCalls": 0
+    },
+    {
+      "mode": "baseline",
+      "channels": 500,
+      "cards": 200,
+      "filterMs": [
+        1046.4000000059605,
+        1701.8999999761581,
+        1974.1000000238419
+      ],
+      "transientHeapDeltaBytes": 8114404,
+      "incrementalCalls": 2,
+      "idleExtraCalls": 0
+    },
+    {
+      "mode": "candidate",
+      "channels": 500,
+      "cards": 200,
+      "filterMs": [
+        7.800000011920929,
+        3.199999988079071,
+        2.9000000059604645
+      ],
+      "transientHeapDeltaBytes": 119580,
+      "incrementalCalls": 1,
+      "idleExtraCalls": 0
+    },
+    {
+      "mode": "baseline",
+      "oldInitialPayloadRetained": true
+    },
+    {
+      "mode": "candidate",
+      "oldInitialPayloadRetained": false
+    }
+  ],
+  "browser": "152.0.4191.66"
+}

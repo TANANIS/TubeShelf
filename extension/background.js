@@ -49,6 +49,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message?.type === "START_SUBSCRIPTION_UPDATE") {
     (async () => {
+      const state = await chrome.storage.local.get(STORAGE_KEY);
+      if (state[STORAGE_KEY]?.settings?.enabled === false) {
+        sendResponse({ ok: false, error: "TUBESHELF_DISABLED" });
+        return;
+      }
       const saved = await chrome.storage.local.get("tubeShelfScanStatus");
       const current = saved.tubeShelfScanStatus;
       if (["starting", "running"].includes(current?.state) && current.tabId && Date.now() - current.startedAt < 300000) {

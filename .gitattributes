@@ -1,0 +1,3 @@
+# Preserve tested extension/package bytes, including line endings, in release tags.
+extension/** -text
+outputs/extension/** -text

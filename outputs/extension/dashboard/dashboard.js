@@ -65,6 +65,7 @@
   }
 
   function acceptState(next, force = false) {
+    if (!force && Number.isSafeInteger(next?.revision) && next.revision <= state.revision) return false;
     const incoming = Core.normalizeState(next);
     if (!force && incoming.revision <= state.revision) return false;
     state = incoming;
@@ -212,7 +213,7 @@
     }
     $("channel-list").innerHTML = channels.map((channel) => {
       const memberships = membershipsByChannel.get(channel.id) || [];
-      const avatar = channel.avatar ? `<img src="${escapeHtml(channel.avatar)}" alt="" referrerpolicy="no-referrer" />` : escapeHtml(channel.name.slice(0, 1).toUpperCase());
+      const avatar = channel.avatar ? `<img src="${escapeHtml(channel.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />` : escapeHtml(channel.name.slice(0, 1).toUpperCase());
       const chips = memberships.length ? `${memberships.slice(0, 1).map((group) => `<span class="chip" style="color:${group.color};background:${group.color}17">${escapeHtml(group.name)}</span>`).join("")}${memberships.length > 1 ? `<span class="chip">+${memberships.length - 1}</span>` : ""}` : '<span class="unfiled">尚未分類</span>';
       const control = selected
         ? `<button class="member-toggle" data-channel="${escapeHtml(channel.id)}" role="switch" aria-label="${escapeHtml(channel.name)} 加入 ${escapeHtml(selected.name)}" aria-checked="${selected.channelIds.includes(channel.id)}"></button>`

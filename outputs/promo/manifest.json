@@ -1,0 +1,48 @@
+{
+  "product": "TubeShelf",
+  "version": "1.18.3",
+  "generatedAt": "2026-09-07T16:30:05.889Z",
+  "source": [
+    "work/promo/tubeshelf-promo.html",
+    "work/promo/tubeshelf-promo.js",
+    "scripts/render-promo.cjs",
+    "scripts/build-promo-gif.py"
+  ],
+  "storeUrl": "https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb",
+  "privacy": "All channel names, video titles, counts, and thumbnails shown are fictional mock data.",
+  "outputs": [
+    {
+      "file": "TubeShelf-1.18.3-intro.mp4",
+      "kind": "video",
+      "format": "MP4",
+      "width": 1280,
+      "height": 720,
+      "durationSeconds": 42,
+      "mimeType": "video/mp4;codecs=avc1.4D401F",
+      "hasAudio": false,
+      "sha256": "29E0CEA4D7FB6FF905044306E21460E7DD04289EAE4EE79D5838EDB61D6B382E",
+      "bytes": 16327428
+    },
+    {
+      "file": "TubeShelf-1.18.3-preview.gif",
+      "kind": "preview",
+      "format": "GIF",
+      "width": 800,
+      "height": 450,
+      "durationSeconds": 8.74,
+      "frames": 73,
+      "loop": true,
+      "sha256": "9F2D87F1B1E4DFAB0BFFEB3EACF0A649071FB83117CF63535856106F53967200",
+      "bytes": 3013390
+    },
+    {
+      "file": "TubeShelf-1.18.3-poster.png",
+      "kind": "poster",
+      "format": "PNG",
+      "width": 1280,
+      "height": 720,
+      "sha256": "11011D176D0CCC1356C2C48E1DD0B4DAC0CF7E626C59A80B86960A5AA14561E9",
+      "bytes": 321998
+    }
+  ]
+}

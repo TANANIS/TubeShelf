@@ -51,6 +51,8 @@ YouTube SPA navigation is separate from state synchronization. Page navigation r
 
 ## Long-running metadata work
 
+`settings.enabled` is the persistent global YouTube integration power state (missing values default to `true`). The popup changes it using `set-setting` through the background queue. Turning off retains channels, aliases, groups and individual settings, tears down filtering/UI/observers in every content tab, and stops identity inspection. Disabled tabs still accept storage revisions so enabling restores current state without a reload. Automatic subscription and identity operations are rejected while disabled; an interrupted full scan must not reconcile a partial list. Already-completed navigation is not reversed; a TubeShelf-disabled autoplay toggle is restored only when its original element remains connected and the user has not manually changed it.
+
 Network work must run against cloned channel objects. On completion it sends `patch-channels`; it must not save the snapshot used to start the work. Local profile data and official metadata are merged only when their timestamps are at least as new as the stored values.
 
 ## Subscription scan reconciliation

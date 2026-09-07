@@ -1,0 +1,150 @@
+# TubeShelf Handoff
+
+Updated: 2026-09-08  
+Current extension version: **1.18.7 (local package)**  
+Current state schema: **14**
+
+## Current status
+
+Version 1.18.7 widens the popup to 460 px and uses a fixed 600 px layout, with a scrollable group area measured at 237 px for a 416-channel/10-group Traditional Chinese fixture. Counts and YouTube destinations share one row; redundant per-group subtitles are hidden; the support section is a compact footer. The support link has been removed from `tubeshelf-toolbar` while remaining in the popup, dashboard and YouTube panel.
+
+The popup header now has a single global power button backed by `settings.enabled` via the existing background `set-setting` queue. Missing values default to enabled. Turning off removes injected guide/toolbar/classifications, unhides native cards/Shorts/recommendations, closes the panel, cancels queued work/scanning, disconnects observers and suspends the MAIN identity bridge. Channels, memberships, aliases and individual preferences are preserved. Reopening or reloading keeps the saved power state. Turning back on reapplies the current state without a YouTube reload. Automatic identity/subscription/scan commits reject disabled state. Already completed redirects are not reversed; autoplay restoration only applies to the connected toggle previously changed by TubeShelf without a subsequent manual user click.
+
+Verification: six JavaScript syntax checks, **46 unit/static/background tests**, existing UI smoke, performance smoke, and new `tests/power-smoke.cjs` pass. Power smoke exercises the popup semantic operation, live content cleanup, native Shorts visibility, autoplay restore, disabled reload, data retention, restored filtering and bridge suspension. English/Traditional Chinese and enabled/disabled screenshots were visually inspected. `work/popup-1.18.7-on.png` uses synthetic data, not the user's actual subscriptions.
+
+Current artifact: `outputs/TubeShelf-1.18.7.zip`; SHA-256 `b012f4612c4dfbb29efb0acb1f21920c5ee77ae3c82fabd69df2bfc1d3e9a08e`. All 18 source/mirror/ZIP files match. Local only; no store/GitHub publication or installed-extension verification on signed-in YouTube in this task.
+
+## 1.18.6 support entry history
+
+Version 1.18.6 retains the 1.18.5 performance improvements and makes the Buy Me a Coffee entry visible in the subscription toolbar, YouTube panel, dashboard sidebar, and popup. All links target `https://buymeacoffee.com/tananis`, open in a new tab, and use `noopener noreferrer`. No embedded third-party scripts, new observers, or requests are added.
+
+The bilingual call to action is **支持與回饋 ↗ / Support & feedback ↗**. Copy: 「有問題想回報，或有功能想許願？用一杯咖啡支持開發，也把你的想法留給我。」 / “Found an issue or have a feature wish? Support development with a coffee and share your ideas with me.” It makes no promise of paid priority, guaranteed fixes, or feature delivery.
+
+The popup statistics are compact so the support card remains inside a 600 px viewport. Rendered English and Traditional Chinese popup heights are 589 px and 577 px; screenshots of the popup, dashboard, and subscription harness were visually inspected. The link's new-tab destination was checked with an intercepted local response, not a live payment flow. Syntax checks, all 44 unit/static/background tests, existing UI smoke, and performance smoke pass.
+
+Current local artifact: `outputs/TubeShelf-1.18.6.zip`; SHA-256 `ab26ad5a7beb457518de13dba31acbf301722377437852e02eab92d96845c8c5`. All 18 source/mirror/ZIP files match byte-for-byte. Source and `outputs/extension/` are updated. GitHub/store publication and installed-extension verification on signed-in YouTube remain pending.
+
+## 1.18.5 performance verification history
+
+Version 1.18.5 optimizes the content-script rendering and refresh lifecycle. It is built locally only; GitHub and the store have not been updated by this task. README download links continue to point to the previously published 1.18.4.
+
+- Normalized state builds a channel membership index once per accepted revision. Video badges no longer call the whole-library-normalizing `groupForChannel` for every card.
+- Repeated or older revision notifications are discarded before normalization in content, dashboard, and popup.
+- Dynamic card work is batched against a fixed 32 ms timer deadline instead of resetting a trailing 180 ms debounce. Ongoing page activity no longer postpones filtering indefinitely.
+- TubeShelf-owned badge changes do not schedule another filtering pass. Non-subscription pages skip recommendation-card processing when Shorts hiding is off.
+- Reused card links and watched-progress style changes are observed. Style observation is enabled only on subscriptions when watched-video filtering is active.
+- Hidden content tabs accept current state but defer rendering, cancel pending timers, and release queued DOM nodes. Foregrounding refreshes from the latest accepted revision.
+- The identity bridge pauses observation and retries while hidden, releases its identity caches on navigation away, and weakly references `ytInitialData`. Returning to cached channel renderers still republishes valid identities.
+- Dashboard list avatars load lazily.
+
+Verification: JavaScript syntax checks and all **44 unit/static/background tests pass**; existing UI smoke and `tests/performance-smoke.cjs` pass. A headless Edge synthetic comparison using 500 channels and 200 cards measured baseline filter calls of 1,046–1,974 ms versus 2.2–7.8 ms for 1.18.5. This measures the extension filter function, not total YouTube page load or installed-extension process memory. A synthetic GC probe confirmed the old initial-data object was retained by 1.18.4 after navigation and collectable with 1.18.5.
+
+Local artifact: `outputs/TubeShelf-1.18.5.zip`; SHA-256 `8515f1717894cd6ac43155d28b1b988d46b51dc55640c3e8056e4cab29d648fe`. All 18 source, mirror, and ZIP files are byte-identical. Build/verification entrypoint: `scripts/package.py`. Findings and reproducible benchmark inputs/results: `PERFORMANCE.md`, `work/performance-audit.cjs`, `work/performance-baseline/`, and `work/performance-audit-results.json`.
+
+Manual installed-extension testing against the signed-in YouTube account is still pending. Load/reload the existing unpacked installation from `outputs/extension/`, then reload existing YouTube tabs once to replace the old content script. Do not remove the existing installation or its local data.
+
+## Previous 1.18.3 verification history
+
+Version 1.18.3 retains the unified state mutation and scan-time channel identity reconciliation from 1.18.0, and adds the verified YouTube UI follow-up described below. The known split-identity failure—where a channel was categorized under `/channel/UC...` but the subscriptions card still resolved to `/@handle` and remained in Unfiled—has been addressed in source, automated tests, and browser harnesses.
+
+The local release artifact is:
+
+- `outputs/TubeShelf-1.18.3.zip`
+- SHA-256: `78A4328422521EEE82763EE0CF1694CC53DE6ADC796A465350D5EC163A1C8485`
+- Verified contents: 18 source files, 18 mirrored files, and 18 ZIP files; source, mirror, and ZIP hashes match exactly.
+
+GitHub `main` and tag `v1.18.3` are published. The tag contains the verified ZIP at `outputs/TubeShelf-1.18.3.zip`, and README links directly to that tag artifact. The Chrome Web Store listing itself was not uploaded or changed in this task; README now links to the existing listing supplied by the user.
+
+## Packaged 1.18.3 UI follow-up
+
+The 1.18.3 source, `outputs/extension/` mirror, and ZIP include this YouTube UI follow-up:
+
+- `tubeshelf-guide-section` starts collapsed, has an accessible expand/collapse control, and preserves manual changes during the current YouTube SPA session.
+- `tubeshelf-toolbar` group chips wrap naturally onto additional rows instead of overflowing horizontally when many groups exist.
+- The toolbar brand block has been removed so the group chips receive the full available width.
+- YouTube live inspection showed the expected `--yt-spec-*` properties are empty in the current subscriptions UI. TubeShelf now follows YouTube's actual `html[dark]` marker with explicit light and dark tokens, so injected surfaces switch immediately without separate persisted theme state.
+- The toolbar now uses `box-sizing: border-box` with a 52 px one-row minimum. Additional group rows still expand the toolbar naturally without the previous content-box minimum-height padding inflation.
+- Subscription-page video previews now add a compact classification row immediately below each card's last `ytContentMetadataViewModelMetadataRow`. Stored categorized channels show every assigned group, stored unfiled channels show Unclassified, and channels absent from TubeShelf state receive no added row.
+- Channel pages retain `tubeshelf-channel-classification`, but its insertion lookup is scoped to the page header so video-grid metadata elsewhere on the page cannot capture it.
+- `ts-current-trigger` is rendered only for a stored channel that is not currently known to be unsubscribed. A newly subscribed channel still enters through the existing `set-subscription` semantic operation before the control appears.
+- Metadata-row arrival uses the existing debounced YouTube structure observer. The added UI remains read-only; state changes still flow through the background single-writer queue and accepted revisions.
+
+Verification for this follow-up: all JavaScript syntax checks pass, unit/static/background tests remain **43/43 passed**, and the browser smoke covers guide collapse/expand, brand-free wrapped toolbar rows, `html[dark]` light/dark changes, scoped channel-header classification, preview-card categorized/unfiled/no-data cases, alias-resolved membership, and removal of channel controls after a newer no-channel state revision. Manual installed-extension verification on live YouTube remains required.
+
+## What changed
+
+### Unified mutation flow
+
+- `background.js` is the sole writer of `tubeShelfState`.
+- Dashboard, popup, and content scripts send semantic operations rather than saving stale full-state snapshots.
+- Mutations are serialized, applied to the latest state, assigned a new `revision`, written once, and broadcast.
+- Frontends deduplicate renders by revision, so live updates and reloads follow the same state source.
+- Async metadata enrichment uses timestamps and cannot overwrite newer user decisions.
+
+### Stable channel identity
+
+- Schema 14 adds `channelAliases`.
+- `resolveChannelRecordId` maps `/@handle`, `/channel/UC...`, and other validated aliases to one record.
+- `coalesceChannelIdentities` merges strongly linked duplicate records while retaining groups, manual labels, aliases, and newest metadata.
+- `identity-bridge.js` runs in YouTube's MAIN world on `/feed/channels` and reads validated renderer identity pairs (`browseId` plus canonical URL). It sends only the minimal identity mapping to the isolated content script.
+- `reconcile-subscription-scan` replaces blind channel-list replacement. It coalesces strong identities, upserts observed subscriptions, preserves unresolved canonical-only records, and applies the partial-scan shrink guard.
+- Display names are never used to merge records.
+
+### Original reproduced failure
+
+The live evidence for Tenacious Trilobite was:
+
+- subscriptions card: `/@TenaciousTrilobite`;
+- channel page canonical identity: `/channel/UCNqVXfC231oVcZEcUKrW0DQ`;
+- TubeShelf channel control identity: `/channel/ucnqvxfc231ovczecukrw0dq`.
+
+The old flow could keep a handle record in Unfiled while the canonical record carried the selected group. The new scan bridge and reconciliation operation join those identities and preserve the categorized record.
+
+## Current data flow
+
+1. `/feed/channels` loads and the MAIN-world bridge observes YouTube channel renderers.
+2. The bridge validates stable `UC...` IDs and canonical base URLs, then posts identity pairs to the isolated content script.
+3. The scanner collects visible subscription cards, enriches them with bridge identities, and sends `reconcile-subscription-scan`.
+4. The background queue reads the latest state and calls the shared reconciliation logic.
+5. Reconciliation coalesces aliases, updates observed channels, protects uncertain records, increments `revision`, and commits once.
+6. All open TubeShelf surfaces receive the committed revision and rerender from the same authoritative state.
+7. Subscription filtering resolves every card identity through `channelAliases` before checking group membership.
+
+## Verification completed
+
+- JavaScript syntax checks pass, including the final renderer-data retry logic in `identity-bridge.js`.
+- Unit/static/background tests: **43/43 passed**.
+- Browser UI smoke passed: English UI, group merge, channel identity repair, channel-header and preview-card classification metadata, unsubscribed control removal, guide collapse, brand-free wrapped toolbar groups, `html[dark]` YouTube theme following, scan identity extraction, Unfiled filtering, synchronized group URL, and dynamic Shorts hiding.
+- A 500-channel reconciliation benchmark completed in approximately 40 ms on the first reconciliation and 117 ms on a repeated pass in the current environment. This excludes YouTube page scrolling/network time.
+- Package source/mirror/ZIP file sets and SHA-256 values match exactly.
+
+## Manual verification still required
+
+The newly built unpacked extension has not yet been reloaded and exercised against the user's live signed-in YouTube account after the final 1.18.3 changes. Before store submission:
+
+1. Reload `outputs/extension/` in `edge://extensions` or `chrome://extensions`.
+2. Run **Update subscriptions** and let `/feed/channels` finish loading all subscriptions.
+3. Categorize a currently Unfiled channel from its channel page or watch page.
+4. Return to `/feed/subscriptions#tubeshelf-group=unfiled` without reloading and confirm it disappears.
+5. Reload the subscriptions page and confirm it remains absent from Unfiled and appears in the selected group.
+6. Inspect the dashboard to confirm there is one effective record and the correct group membership.
+7. Repeat with several handle/canonical combinations and with subscribe/unsubscribe actions.
+8. Toggle YouTube between light and dark on `/feed/subscriptions` and confirm the guide, toolbar, panel, and preview classification badges switch immediately.
+
+YouTube's internal renderer shape is not a public API and may change. The bridge currently checks `data`, `__data.data`, `__data`, and `__dataHost.data`, with bounded retries when data is assigned after element creation. If live scanning stops producing aliases, inspect the renderer payload before weakening validation.
+
+## Important files
+
+- `STATE_SYNC.md`: authoritative persistence, mutation, revision, and identity rules.
+- `extension/shared.js`: schema 14, alias resolution, coalescing, reconciliation, and semantic operations.
+- `extension/background.js`: serialized single-writer commit pipeline.
+- `extension/content/identity-bridge.js`: YouTube MAIN-world identity extraction.
+- `extension/content/content.js`: scanning, filtering, page controls, and bridge consumption.
+- `tests/shared.test.js`: identity and reconciliation behavior.
+- `tests/identity-scan-harness.html`: renderer identity extraction fixture.
+- `tests/content-harness.html` and `tests/subscriptions-harness.html`: split-identity and filtering fixtures.
+- `tests/ui-smoke.cjs`: browser-level regression checks.
+
+## Next priority
+
+Perform the live installed-extension verification above. If it passes, the synchronization and identity standard is ready for normal feature work and store-preparation review. If it fails, capture the affected subscription card URL, the channel page canonical URL, and the renderer's identity fields; do not add a display-name fallback.

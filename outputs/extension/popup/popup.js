@@ -12,7 +12,8 @@
         send: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
         navigate: (tab, url) => tab?.id && /^https:\/\/(www\.)?youtube\.com\//.test(tab.url || "") ? chrome.tabs.update(tab.id, { url }) : chrome.tabs.create({ url }),
         openOptions: () => chrome.runtime.openOptionsPage(),
-        onChange: (callback) => chrome.storage.onChanged.addListener(callback)
+        onChange: (callback) => chrome.storage.onChanged.addListener(callback),
+        mutate: (operation) => chrome.runtime.sendMessage({ type: "TUBESHELF_MUTATE", operation })
       }
     : {
         getState: async () => ({
@@ -32,11 +33,13 @@
         send: async () => ({ ok: true, count: 3 }),
         navigate: async () => ({}),
         openOptions: () => {},
-        onChange: () => {}
+        onChange: () => {},
+        mutate: async (operation) => ({ ok: true, state: { ...Core.applyStateOperation(state, operation), revision: state.revision + 1 } })
       };
 
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   function acceptState(next, force = false) {
+    if (!force && Number.isSafeInteger(next?.revision) && next.revision <= state.revision) return false;
     const incoming = Core.normalizeState(next);
     if (!force && incoming.revision <= state.revision) return false;
     state = incoming;
@@ -49,11 +52,19 @@
   }
 
   function render() {
+    const enabled = state.settings.enabled;
+    document.body.classList.toggle("ts-paused", !enabled);
+    const power = document.getElementById("power-toggle");
+    power.setAttribute("aria-pressed", String(enabled));
+    const label = Core.translateUiText(enabled ? "關閉 TubeShelf，恢復原本 YouTube" : "啟用 TubeShelf", state.settings.language);
+    power.setAttribute("aria-label", label);
+    power.title = label;
+    ["open-panel", "update-subscriptions"].forEach((id) => { document.getElementById(id).disabled = !enabled; });
     document.getElementById("channel-count").textContent = Object.keys(state.channels).length;
-    document.getElementById("open-home").hidden = Boolean(state.settings.blockHome);
+    document.getElementById("open-home").hidden = enabled && Boolean(state.settings.blockHome);
     const host = document.getElementById("groups");
     host.innerHTML = state.groups.length
-      ? state.groups.map((group) => `<button class="group" data-group="${escapeHtml(group.id)}" type="button">
+      ? state.groups.map((group) => `<button class="group" data-group="${escapeHtml(group.id)}" title="${escapeHtml(group.name)}" type="button" ${enabled ? "" : "disabled"}>
           <span class="group-icon" style="color:${group.color};background:${group.color}1c">${Core.iconSvg(group.icon, "currentColor", 17)}</span>
           <span><span class="group-name">${escapeHtml(group.name)}</span><span class="group-meta">YouTube 群組</span></span>
           <span class="group-count">${group.channelIds.length}</span>
@@ -70,6 +81,11 @@
     document.getElementById("page-title").textContent = kind === "home" && state.settings.blockHome ? "首頁已封鎖" : kind === "home" ? "目前是首頁推薦" : kind === "subscriptions" ? "目前是訂閱內容" : isYouTube ? "目前是 YouTube 其他頁面" : "目前不是 YouTube 分頁";
     document.getElementById("page-hint").textContent = kind === "home" && state.settings.blockHome ? "將自動前往訂閱內容" : kind === "home" ? "首頁保留 YouTube 演算法" : kind === "subscriptions" ? "可以使用群組與畫面整理" : "前往訂閱內容即可使用群組";
     document.querySelectorAll("[data-destination]").forEach((button) => button.classList.toggle("active", button.dataset.destination === kind));
+    if (!state.settings.enabled) {
+      card.classList.remove("ready");
+      document.getElementById("page-title").textContent = "TubeShelf 已關閉";
+      document.getElementById("page-hint").textContent = "正在使用原本 YouTube，群組與設定已保留";
+    }
     localize(document.getElementById("page-card"));
   }
 
@@ -80,6 +96,18 @@
   }
 
   document.getElementById("manage-top").addEventListener("click", extensionApi.openOptions);
+  document.getElementById("power-toggle").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const result = await extensionApi.mutate({ type: "set-setting", payload: { setting: "enabled", enabled: !state.settings.enabled } });
+      if (!result?.ok) throw new Error(result?.error || "Power update failed");
+      acceptState(result.state);
+      render(); renderTab();
+    } catch (_error) {
+      document.getElementById("page-hint").textContent = Core.translateUiText("電源切換失敗，請再試一次", state.settings.language);
+    } finally { button.disabled = false; }
+  });
   document.getElementById("add-group").addEventListener("click", extensionApi.openOptions);
   document.getElementById("open-home").addEventListener("click", async () => { await extensionApi.navigate(activeTab, "https://www.youtube.com/"); window.close(); });
   document.getElementById("open-subscriptions").addEventListener("click", async () => { await extensionApi.navigate(activeTab, Core.subscriptionGroupUrl("all")); window.close(); });

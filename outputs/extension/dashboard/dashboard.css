@@ -16,7 +16,13 @@ nav { display: grid; gap: 7px; }
 .nav-item span { width: 20px; font-size: 18px; line-height: 1; text-align: center; }
 .nav-item:hover { color: white; background: rgba(255,255,255,.04); }
 .nav-item.active { color: white; border-color: rgba(124,92,255,.22); background: rgba(124,92,255,.12); }
-.privacy-note { margin-top: auto; padding: 13px; display: flex; gap: 10px; border: 1px solid rgba(81,197,138,.15); border-radius: 14px; background: rgba(81,197,138,.055); }
+.support-card { margin-top: auto; padding: 12px; border: 1px solid #ffce6638; border-radius: 13px; background: #ffce6609; }
+.support-link { min-height: 36px; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px; background: #ffdd80; color: #29200d; font-size: 12px; font-weight: 700; text-decoration: none; }
+.support-link:hover { background: #ffe6a3; }
+.support-link:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.support-card p { margin: 11px 0 5px; color: #e9e2d2; font-size: 12px; }
+.support-card small { display: block; color: #aaa59a; font-size: 11px; line-height: 1.5; }
+.privacy-note { margin-top: 12px; padding: 13px; display: flex; gap: 10px; border: 1px solid rgba(81,197,138,.15); border-radius: 14px; background: rgba(81,197,138,.055); }
 .privacy-note > span { color: #51c58a; font-size: 9px; }
 .privacy-note strong, .privacy-note small { display: block; }
 .privacy-note strong { font-size: 11px; }
@@ -216,6 +222,8 @@ legend { margin-bottom: 9px; color: #aaa6b1; font-size: 10px; font-weight: 650; 
 .onboarding-dots span.active { width: 18px; background: #8c72ff; }
 .onboarding-actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
 .onboarding-target { position: relative !important; z-index: 2502 !important; border-color: rgba(157,132,255,.9) !important; box-shadow: 0 0 0 5px rgba(124,92,255,.24), 0 14px 46px rgba(0,0,0,.38) !important; animation: onboarding-pulse 1.5s ease-in-out infinite; }
+@media (max-width: 900px) { .support-card { padding: 0; border: 0; background: none; } .support-card p, .support-card small, .support-copy { display: none; } .support-link { min-width: 38px; } }
+@media (max-width: 680px) { .support-card { margin: 0 0 0 12px; } }
 @keyframes auto-spin { to { transform: rotate(360deg); } }
 @keyframes auto-unspin { to { transform: rotate(-360deg); } }
 @keyframes onboarding-pulse { 50% { box-shadow: 0 0 0 9px rgba(124,92,255,.12), 0 14px 46px rgba(0,0,0,.38); } }

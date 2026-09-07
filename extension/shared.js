@@ -16,6 +16,15 @@
     "首頁推薦": "Home recommendations", "YouTube 演算法": "YouTube algorithm", "訂閱內容": "Subscriptions",
     "TubeShelf 群組": "TubeShelf groups", "快速開啟": "Quick access", "＋ 新增群組": "+ New group",
     "支持 TubeShelf｜請我喝杯咖啡 ↗": "Support TubeShelf · Buy me a coffee ↗",
+    "支持與回饋 ↗": "Support & feedback ↗",
+    "關閉 TubeShelf，恢復原本 YouTube": "Turn off TubeShelf and restore YouTube",
+    "啟用 TubeShelf": "Turn on TubeShelf",
+    "TubeShelf 已關閉": "TubeShelf is off",
+    "正在使用原本 YouTube，群組與設定已保留": "Original YouTube is active. Your groups and settings are saved.",
+    "電源切換失敗，請再試一次": "Could not change power state. Please try again.",
+    "回報問題・許願功能": "Report an issue · Suggest a feature",
+    "有問題想回報，或有功能想許願？": "Found an issue or have a feature wish?",
+    "用一杯咖啡支持開發，也把你的想法留給我。": "Support development with a coffee and share your ideas with me.",
     "正在確認 YouTube 頁面…": "Checking the YouTube page…", "請稍候": "Please wait",
     "更新訂閱內容": "Update subscriptions", "更新中…": "Updating…", "準備中…": "Starting…",
     "請重新載入擴充套件": "Reload the extension", "YouTube 群組": "YouTube group",
@@ -362,6 +371,7 @@
       channelAliases: {},
       manualLabels: {},
       settings: {
+        enabled: true,
         blockHome: false,
         hideShorts: false,
         hideSecondary: false,
@@ -455,6 +465,7 @@
       channelAliases,
       manualLabels,
       settings: {
+        enabled: typeof rawSettings.enabled === "boolean" ? rawSettings.enabled : true,
         blockHome: typeof rawSettings.blockHome === "boolean" ? rawSettings.blockHome : base.settings.blockHome,
         hideShorts: typeof rawSettings.hideShorts === "boolean" ? rawSettings.hideShorts : base.settings.hideShorts,
         hideSecondary: typeof rawSettings.hideSecondary === "boolean" ? rawSettings.hideSecondary : base.settings.hideSecondary,
@@ -505,6 +516,7 @@
   }
 
   function blockedPageRedirect(settings, value) {
+    if (settings?.enabled === false) return "";
     let pathname = "";
     try {
       pathname = String(value || "").startsWith("http") ? new URL(value).pathname : String(value || "").split(/[?#]/)[0];
@@ -969,6 +981,9 @@
     const current = normalizeState(state);
     const type = String(operation?.type || "");
     const payload = operation?.payload && typeof operation.payload === "object" ? operation.payload : {};
+    if (!current.settings.enabled && ["set-subscription", "coalesce-channel-identities", "reconcile-subscription-scan"].includes(type)) {
+      throw Object.assign(new Error("TubeShelf is disabled"), { code: "TUBESHELF_DISABLED" });
+    }
     if (type === "toggle-membership") {
       let next = payload.channel ? coalesceChannelIdentities(current, payload.channel, payload.aliasIds) : current;
       const identity = channelKey(payload.channel?.url || payload.channel?.id || payload.channelId);
@@ -1000,7 +1015,7 @@
     if (type === "coalesce-channel-identities") return coalesceChannelIdentities(current, payload.primaryChannel, payload.aliasIds);
     if (type === "set-setting") {
       const setting = String(payload.setting || "");
-      if (!["blockHome", "hideShorts", "hideSecondary", "disableAutoplay", "hideWatched", "compactMode"].includes(setting)) throw new Error("Unknown setting");
+      if (!["enabled", "blockHome", "hideShorts", "hideSecondary", "disableAutoplay", "hideWatched", "compactMode"].includes(setting)) throw new Error("Unknown setting");
       return normalizeState({ ...current, settings: settingsAfterToggle(current.settings, setting, payload.enabled) });
     }
     if (type === "set-language") return normalizeState({ ...current, settings: { ...current.settings, language: languageCode(payload.language) } });

@@ -5,10 +5,13 @@
   window.__tubeShelfIdentityBridge = true;
   const SOURCE = "tubeshelf-identity-bridge";
   const identities = new Map();
-  const inspected = new WeakMap();
-  const retryCounts = new WeakMap();
+  let inspected = new WeakMap();
+  let retryCounts = new WeakMap();
+  const retryTimers = new Set();
   let observed = false;
   let lastInitialData = null;
+  let enabled = false;
+  let startupTimer = null;
 
   function validChannelId(value) {
     const id = String(value || "").trim();
@@ -53,14 +56,18 @@
   }
 
   function inspectRenderer(renderer) {
-    if (!(renderer instanceof Element)) return;
+    if (!enabled || !(renderer instanceof Element) || location.pathname !== "/feed/channels" || document.hidden) return;
     const alias = renderer.querySelector('a[href^="/@"], a[href^="/channel/"]')?.getAttribute("href") || "";
     const data = renderer.data || renderer.__data?.data || renderer.__data || renderer.__dataHost?.data;
     if (!data) {
       const retries = retryCounts.get(renderer) || 0;
       if (retries < 5) {
         retryCounts.set(renderer, retries + 1);
-        setTimeout(() => { if (renderer.isConnected) inspectRenderer(renderer); }, 80 * (retries + 1));
+        const timer = setTimeout(() => {
+          retryTimers.delete(timer);
+          if (renderer.isConnected) inspectRenderer(renderer);
+        }, 80 * (retries + 1));
+        retryTimers.add(timer);
       }
       return;
     }
@@ -82,7 +89,7 @@
   });
 
   function updateObservation() {
-    const shouldObserve = location.pathname === "/feed/channels";
+    const shouldObserve = enabled && location.pathname === "/feed/channels" && !document.hidden;
     if (shouldObserve && !observed && document.documentElement) {
       observer.observe(document.documentElement, { childList: true, subtree: true });
       observed = true;
@@ -90,29 +97,51 @@
       observer.disconnect();
       observed = false;
     }
+    if (!shouldObserve) {
+      retryTimers.forEach(clearTimeout);
+      retryTimers.clear();
+      retryCounts = new WeakMap();
+    }
   }
 
   function activate() {
     updateObservation();
-    if (location.pathname !== "/feed/channels") return;
+    if (!enabled || location.pathname !== "/feed/channels") {
+      identities.clear();
+      inspected = new WeakMap();
+      lastInitialData = null;
+      return;
+    }
+    if (document.hidden) return;
     scanRenderedChannels();
-    if (window.ytInitialData && window.ytInitialData !== lastInitialData) {
-      lastInitialData = window.ytInitialData;
-      inspectData(lastInitialData);
+    if (window.ytInitialData && typeof window.ytInitialData === "object" && window.ytInitialData !== lastInitialData?.deref()) {
+      lastInitialData = new WeakRef(window.ytInitialData);
+      inspectData(window.ytInitialData);
     }
   }
 
   window.addEventListener("message", (event) => {
-    if (event.source !== window || event.origin !== location.origin || event.data?.source !== SOURCE || event.data?.type !== "REQUEST_IDENTITIES") return;
+    if (event.source !== window || event.origin !== location.origin || event.data?.source !== SOURCE) return;
+    if (event.data.type === "SET_ENABLED" && typeof event.data.enabled === "boolean") {
+      if (enabled === event.data.enabled) return;
+      enabled = event.data.enabled;
+      clearInterval(startupTimer);
+      activate();
+      if (enabled) {
+        let attempts = 0;
+        startupTimer = setInterval(() => {
+          activate();
+          if (++attempts >= 40 || location.pathname !== "/feed/channels") clearInterval(startupTimer);
+        }, 250);
+      }
+      return;
+    }
+    if (!enabled || event.data.type !== "REQUEST_IDENTITIES" || location.pathname !== "/feed/channels") return;
     identities.forEach((payload) => window.postMessage(payload, location.origin));
     activate();
   });
   document.addEventListener("yt-navigate-finish", activate);
+  document.addEventListener("visibilitychange", activate);
   activate();
-  let attempts = 0;
-  const timer = setInterval(() => {
-    activate();
-    attempts += 1;
-    if (attempts >= 40 || location.pathname !== "/feed/channels") clearInterval(timer);
-  }, 250);
+  window.postMessage({ source: SOURCE, type: "BRIDGE_READY" }, location.origin);
 })();

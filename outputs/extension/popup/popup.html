@@ -16,11 +16,13 @@
           <h1>TubeShelf</h1>
           <p>你的訂閱，照你的方式排好</p>
         </div>
+        <button id="power-toggle" class="power-button" type="button" aria-pressed="true" aria-label="關閉 TubeShelf，恢復原本 YouTube" title="關閉 TubeShelf，恢復原本 YouTube"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9M6.3 5.7a8 8 0 1 0 11.4 0"/></svg></button>
         <button id="manage-top" class="icon-btn" type="button" aria-label="管理群組" title="管理群組">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.4 13a7.8 7.8 0 0 0 .1-1 7.8 7.8 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3.5h-4L10.7 6A7.6 7.6 0 0 0 9 7L6.6 6l-2 3.4 2 1.6a7.8 7.8 0 0 0-.1 1 7.8 7.8 0 0 0 .1 1l-2 1.6 2 3.4L9 17a7.6 7.6 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
         </button>
       </header>
 
+      <div class="overview">
       <section class="hero">
         <div><span class="eyebrow">已整理</span><strong id="channel-count">0</strong><span>個頻道</span></div>
         <div class="hero-art" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -30,6 +32,7 @@
         <button id="open-home" data-destination="home" type="button"><span>⌂</span><strong>首頁推薦</strong><small>YouTube 演算法</small></button>
         <button id="open-subscriptions" data-destination="subscriptions" type="button"><span>▦</span><strong>訂閱內容</strong><small>TubeShelf 群組</small></button>
       </nav>
+      </div>
 
       <section class="section groups-section">
         <div class="section-title"><h2>快速開啟</h2><button id="add-group" type="button">＋ 新增群組</button></div>
@@ -48,10 +51,10 @@
         </button>
         <button id="open-panel" class="button primary" type="button">開啟 TubeShelf</button>
       </footer>
-      <a class="support-link" href="https://buymeacoffee.com/tananis" target="_blank" rel="noopener noreferrer">
-        <span aria-hidden="true">☕</span>
-        <span>支持 TubeShelf｜請我喝杯咖啡 ↗</span>
-      </a>
+      <section class="support-card" title="用一杯咖啡支持開發，也把你的想法留給我。">
+        <a class="support-link" href="https://buymeacoffee.com/tananis" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">☕</span><span>支持與回饋 ↗</span></a>
+        <p>回報問題・許願功能</p>
+      </section>
     </main>
     <script src="../shared.js"></script>
     <script src="popup.js"></script>

@@ -2,6 +2,27 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Core = require("../extension/shared.js");
 
+test("global power defaults on and preserves library and preferences across toggles", () => {
+  const original = Core.normalizeState({ channels: { '/@one': { id: '/@one', name: 'One' } }, groups: [{ id: 'g', name: 'Group', channelIds: ['/@one'] }], settings: { hideShorts: true, blockHome: true } });
+  assert.equal(original.settings.enabled, true);
+  const off = Core.applyStateOperation(original, { type: 'set-setting', payload: { setting: 'enabled', enabled: false } });
+  assert.deepEqual(off.channels, original.channels);
+  assert.deepEqual(off.groups, original.groups);
+  assert.equal(off.settings.hideShorts, true);
+  assert.equal(Core.blockedPageRedirect(off.settings, 'https://www.youtube.com/'), '');
+  assert.equal(Core.blockedPageRedirect(off.settings, 'https://www.youtube.com/shorts/test'), '');
+  assert.equal(Core.normalizeState(off).settings.enabled, false);
+  const on = Core.applyStateOperation(off, { type: 'set-setting', payload: { setting: 'enabled', enabled: true } });
+  assert.deepEqual(on, original);
+});
+
+test("disabled integration rejects late automatic subscription and scan commits", () => {
+  const off = Core.normalizeState({settings:{enabled:false}});
+  for (const type of ['set-subscription', 'coalesce-channel-identities', 'reconcile-subscription-scan']) {
+    assert.throws(() => Core.applyStateOperation(off, {type, payload:{channels:[]}}), {code:'TUBESHELF_DISABLED'});
+  }
+});
+
 test("channelKey normalizes supported YouTube channel URLs", () => {
   assert.equal(Core.channelKey("https://www.youtube.com/@Veritasium/videos?view=0"), "/@veritasium");
   assert.equal(Core.channelKey("/channel/UC123/"), "/channel/uc123");
