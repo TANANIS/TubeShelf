@@ -15,6 +15,12 @@
 
 > 繁體中文簡介：TubeShelf 是一個把 YouTube 訂閱變成「自己的書架」的 Chrome / Edge 擴充套件。你可以建立群組、直接在 YouTube 裡分類頻道、隱藏干擾內容，並使用完全在本機運作的自動整理建議。
 
+## Quick preview
+
+<p align="center">
+  <img src="outputs/promo/TubeShelf-1.18.3-preview.gif" alt="TubeShelf groups, filters, video classifications, and theme syncing preview" width="800">
+</p>
+
 ## Download & install
 
 **[Install TubeShelf from the Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb)**
