@@ -253,14 +253,19 @@ None. TubeShelf does not download or execute remote JavaScript or WebAssembly.
 
 TubeShelf handles data because its advertised purpose requires reading and locally organizing information from YouTube pages.
 
-Conservative disclosure guidance for the dashboard:
+Recommended dashboard data-type disclosures:
 
-- **Website content:** Yes. TubeShelf reads visible/public YouTube subscription and channel metadata needed to build and filter the user's local subscription library.
-- **User activity:** Yes, if the dashboard's current wording covers subscription/unsubscription actions or interaction state. TubeShelf detects subscribe/unsubscribe state only to keep its local library synchronized.
-- **Web history / browsing history:** No. TubeShelf does not build or retain a history of websites visited or videos watched across browsing sessions. The watched-video filter inspects YouTube's visible progress markers to decide what to hide on the current subscriptions page; it does not maintain its own watch-history database.
-- **Personally identifiable information:** No intentionally collected PII.
-- **Authentication information:** No TubeShelf credentials or authentication cookies are collected. A user-provided YouTube Data API key is stored locally and used only for the optional Google API feature.
-- **Personal communications, health, financial/payment information, precise location:** No.
+- **Website content: Yes.** TubeShelf reads visible/public YouTube subscription and channel metadata needed to build, classify, label, and filter the user's local subscription library.
+- **Authentication information: Yes.** A user may optionally provide a YouTube Data API key. TubeShelf stores that key locally and uses it only for direct HTTPS requests to Google's YouTube Data API. The key is not sent to the TubeShelf developer and is excluded from TubeShelf JSON backups.
+- **User activity: No.** TubeShelf does not record clicks, mouse positions, keystrokes, general browsing activity, or persistent interaction logs. It reads the current subscribe/unsubscribe state only to keep the local subscription library synchronized.
+- **Web history / browsing history: No.** TubeShelf does not build or retain a history of websites visited or videos watched across browsing sessions. The watched-video filter inspects YouTube's visible progress markers only to decide what to hide on the current subscriptions page; it does not maintain its own watch-history database.
+- **Personally identifiable information: No.** TubeShelf does not intentionally collect names, addresses, email addresses, age, government identifiers, or similar PII.
+- **Personal communications: No.**
+- **Health information: No.**
+- **Financial and payment information: No.**
+- **Location information: No.**
+
+In the current Chrome Web Store privacy form, the expected selected data types are therefore **Website content** and **Authentication information** only.
 
 Data use certifications:
 
