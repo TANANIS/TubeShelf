@@ -19,7 +19,7 @@
 
 **[Install TubeShelf from the Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb)**
 
-**Manual package: [Download TubeShelf 1.18.3](https://github.com/TANANIS/TubeShelf/releases/download/v1.18.3/TubeShelf-1.18.3.zip)**
+**Manual package: [Download TubeShelf 1.18.3](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.18.3/outputs/TubeShelf-1.18.3.zip)**
 
 ### Chrome
 
