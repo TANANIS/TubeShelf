@@ -5,13 +5,17 @@ const path = require("node:path");
 const vm = require("node:vm");
 const Core = require("../extension/shared.js");
 
-function loadBackground(initialState) {
+function loadBackground(initialState, fetchImpl) {
   const store = { tubeShelfState: Core.normalizeState(initialState) };
   let messageListener = null;
+  let installListener = null;
+  const openedTabs = [];
   const context = {
     console,
     setTimeout,
     clearTimeout,
+    AbortController,
+    fetch: fetchImpl,
     chrome: {
       storage: {
         local: {
@@ -26,11 +30,12 @@ function loadBackground(initialState) {
         }
       },
       runtime: {
-        onInstalled: { addListener: () => {} },
+        onInstalled: { addListener: (listener) => { installListener = listener; } },
+        getURL: (relative) => `chrome-extension://test-id/${relative}`,
         onMessage: { addListener: (listener) => { messageListener = listener; } },
         openOptionsPage: async () => {}
       },
-      tabs: { update: async () => ({}), create: async () => ({ id: 1 }), remove: async () => {} },
+      tabs: { update: async () => ({}), create: async (options) => { openedTabs.push({ ...options, storedState: store.tubeShelfState }); return { id: 1 }; }, remove: async () => {} },
       action: { setBadgeBackgroundColor: async () => {}, setBadgeText: async () => {} },
       i18n: { getUILanguage: () => "en" }
     }
@@ -40,6 +45,8 @@ function loadBackground(initialState) {
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../extension/background.js"), "utf8"), context, { filename: "background.js" });
   return {
     store,
+    openedTabs,
+    install: (reason) => installListener({ reason }),
     send(message) {
       return new Promise((resolve, reject) => {
         const keepAlive = messageListener(message, { tab: { id: 1, url: "https://www.youtube.com/" } }, resolve);
@@ -65,4 +72,80 @@ test("background serializes concurrent state mutations without losing either int
   assert.equal(background.store.tubeShelfState.revision, 2);
   assert.deepEqual(background.store.tubeShelfState.groups.find((group) => group.id === "learning").channelIds, ["/@one"]);
   assert.deepEqual(background.store.tubeShelfState.groups.find((group) => group.id === "relax").channelIds, ["/@two"]);
+});
+
+test("favorites and group selections share the serialized commit queue", async () => {
+  const background = loadBackground({ channels: { '/@one': { name: 'One' } } });
+  const results = await Promise.all([
+    background.send({ type: 'TUBESHELF_MUTATE', operation: { type: 'edit-favorites', payload: { changes: [{ channelId: '/@one', enabled: true }] } } }),
+    background.send({ type: 'TUBESHELF_MUTATE', operation: { type: 'edit-memberships', payload: { groupId: 'learning', changes: [{ channelId: '/@one', enabled: true }] } } })
+  ]);
+  assert.ok(results.every(result => result.ok));
+  assert.equal(background.store.tubeShelfState.revision, 2);
+  assert.deepEqual(background.store.tubeShelfState.favoriteChannelIds, ['/@one']);
+  assert.deepEqual(background.store.tubeShelfState.groups[0].channelIds, ['/@one']);
+});
+
+test("favorite feed requests resolve the page owner, deduplicate, cache and reject nonfavorites", async () => {
+  const calls = [];
+  const background = loadBackground({ channels: { '/@one': { name: 'One' } }, favoriteChannelIds: ['/@one'] }, async (url) => {
+    calls.push(url);
+    return { ok: true, text: async () => url.endsWith('/videos') ? '{"channelMetadataRenderer":{"title":"One","externalId":"UCabcdefghijklmnopqrstuv"}}' : '<feed></feed>' };
+  });
+  const message = { type: 'TUBESHELF_FAVORITE_FEED', channelId: '/@one' };
+  const [first, duplicate] = await Promise.all([background.send(message), background.send(message)]);
+  assert.equal(first.ok, true);
+  assert.equal(duplicate.xml, '<feed></feed>');
+  assert.equal(calls.length, 2);
+  await background.send(message);
+  assert.equal(calls.length, 2);
+  await background.send({ ...message, force: true });
+  assert.equal(calls.length, 4);
+  assert.match(calls[1], /channel_id=UCabcdefghijklmnopqrstuv$/);
+  assert.equal((await background.send({ ...message, channelId: 'https://example.com/@one' })).ok, true); // Identity resolves only to a stored YouTube record.
+  assert.ok(calls.every(url => url.startsWith('https://www.youtube.com/')));
+  await background.send({ type: 'TUBESHELF_MUTATE', operation: { type: 'edit-favorites', payload: { changes: [{ channelId: '/@one', enabled: false }] } } });
+  assert.equal((await background.send(message)).ok, false);
+  assert.equal(calls.length, 4);
+});
+
+test('first install commits initial state before opening preferences with onboarding pending', async () => {
+  const background = loadBackground();
+  await background.install('install');
+  assert.equal(background.openedTabs.length, 1);
+  const tab = background.openedTabs[0];
+  assert.equal(tab.url, 'chrome-extension://test-id/dashboard/dashboard.html?view=settings');
+  assert.equal(tab.active, true);
+  assert.equal(tab.storedState.revision, 1);
+  assert.equal(tab.storedState.settings.onboardingComplete, false);
+});
+
+test('hide Shorts uses the Videos tab, separates cache modes and never falls back to RSS on failure', async () => {
+  const calls=[]; let fail=false;
+  const data={contents:{twoColumnBrowseResultsRenderer:{tabs:[{tabRenderer:{selected:true,tabIdentifier:'videos',content:{videoRenderer:{videoId:'normal00001',title:{simpleText:'Normal'}}}}}]}}};
+  const background=loadBackground({channels:{'/@one':{name:'One',channelId:'UCabcdefghijklmnopqrstuv'}},favoriteChannelIds:['/@one']},async url=>{
+    calls.push(url);
+    return {ok:true,text:async()=>url.endsWith('/videos') ? fail ? 'Consent required' : 'var ytInitialData = '+JSON.stringify(data)+';' : '<feed></feed>'};
+  });
+  const message={type:'TUBESHELF_FAVORITE_FEED',channelId:'/@one'};
+  assert.equal((await background.send(message)).hideShorts,false);
+  await background.send({type:'TUBESHELF_MUTATE',operation:{type:'set-setting',payload:{setting:'hideShorts',enabled:true}}});
+  const normal=await background.send(message);
+  assert.equal(normal.hideShorts,true);
+  assert.equal(normal.videos[0].id,'normal00001');
+  assert.equal(calls.length,2);
+  await background.send(message);
+  assert.equal(calls.length,2);
+  fail=true;
+  assert.equal((await background.send({...message,force:true})).ok,false);
+  assert.equal(calls.length,3);
+  assert.ok(calls.at(-1).endsWith('/videos'));
+});
+
+test('extension and browser updates preserve onboarding and data without opening dashboard', async () => {
+  const initial = Core.normalizeState({ channels: { '/@one': { name: 'One' } }, favoriteChannelIds: ['/@one'], settings: { onboardingComplete: true, hideShorts: true } });
+  const background = loadBackground(initial);
+  for (const reason of ['update', 'chrome_update', 'shared_module_update']) await background.install(reason);
+  assert.equal(background.openedTabs.length, 0);
+  assert.deepEqual(background.store.tubeShelfState, { ...initial, revision: initial.revision + 3 });
 });

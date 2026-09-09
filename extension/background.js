@@ -4,6 +4,57 @@ const Core = globalThis.TubeShelfCore;
 const STORAGE_KEY = "tubeShelfState";
 const API_KEY_STORAGE = "tubeShelfYouTubeApiKey";
 let stateWriteQueue = Promise.resolve();
+const favoriteFeedCache = new Map();
+const favoriteFeedPending = new Map();
+
+async function readFavoriteFeed(identity, force = false) {
+  const current = Core.normalizeState((await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY]);
+  const id = Core.resolveChannelRecordId(current, identity);
+  if (!current.settings.enabled || !id || !current.favoriteChannelIds.includes(id)) throw new Error("Channel is not an active favorite");
+  const channel = current.channels[id];
+  const hideShorts = current.settings.hideShorts;
+  const key = `${id}:${hideShorts ? "videos" : "all"}`;
+  const cached = favoriteFeedCache.get(key);
+  if (!force && cached && Date.now() - cached.fetchedAt < 300000) return cached;
+  if (favoriteFeedPending.has(key)) return favoriteFeedPending.get(key);
+  if (favoriteFeedPending.size >= 3) throw new Error("Feed requests busy; retry shortly");
+  const request = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    const get = async (url, maxLength) => {
+      const response = await fetch(url, { signal: controller.signal, credentials: "omit", cache: "no-store" });
+      if (!response.ok) throw new Error(`YouTube ${response.status}`);
+      const text = await response.text();
+      if (text.length > maxLength) throw new Error("Feed response too large");
+      return text;
+    };
+    try {
+      if (hideShorts) {
+        const source = await get(`${channel.url}/videos`, 10000000);
+        const videos = Core.collectChannelUploads(Core.parseYouTubeInitialData(source));
+        const result = { videos, hideShorts: true, fetchedAt: Date.now() };
+        if (favoriteFeedCache.size >= 100) favoriteFeedCache.delete(favoriteFeedCache.keys().next().value);
+        favoriteFeedCache.set(key, result);
+        return result;
+      }
+      let channelId = /^UC[\w-]{22}$/.test(channel.channelId) ? channel.channelId : "";
+      if (!channelId) {
+        const source = await get(`${channel.url}/videos`, 10000000);
+        // Channel metadata identifies the page owner; unrelated video owners are not identity evidence.
+        channelId = source.match(/"channelMetadataRenderer"\s*:\s*\{[^}]*"externalId"\s*:\s*"(UC[\w-]{22})"/)?.[1]
+          || source.match(/<meta\s+itemprop="channelId"\s+content="(UC[\w-]{22})"/)?.[1] || "";
+      }
+      if (!channelId) throw new Error("Could not identify channel");
+      const xml = await get(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`, 1000000);
+      const result = { xml, hideShorts: false, fetchedAt: Date.now() };
+      if (favoriteFeedCache.size >= 100) favoriteFeedCache.delete(favoriteFeedCache.keys().next().value);
+      favoriteFeedCache.set(key, result);
+      return result;
+    } finally { clearTimeout(timeout); }
+  })();
+  favoriteFeedPending.set(key, request);
+  try { return await request; } finally { favoriteFeedPending.delete(key); }
+}
 
 function enqueueStateTask(task) {
   const transaction = stateWriteQueue.then(task);
@@ -23,14 +74,24 @@ function enqueueStateOperation(operation) {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => enqueueStateTask(async () => {
+chrome.runtime.onInstalled.addListener((details) => enqueueStateTask(async () => {
   const saved = await chrome.storage.local.get(STORAGE_KEY);
   const current = Core.normalizeState(saved[STORAGE_KEY]);
   const normalized = Core.normalizeState({ ...current, revision: current.revision + 1 });
   await chrome.storage.local.set({ [STORAGE_KEY]: normalized });
-}));
+}).then(async () => {
+  if (details.reason === "install") {
+    await chrome.tabs.create({ url: chrome.runtime.getURL("dashboard/dashboard.html?view=settings"), active: true });
+  }
+}).catch((error) => console.error("TubeShelf installation setup failed", error)));
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "TUBESHELF_FAVORITE_FEED") {
+    readFavoriteFeed(message.channelId, message.force === true)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
+    return true;
+  }
   if (message?.type === "OPEN_DASHBOARD") {
     chrome.runtime.openOptionsPage();
     sendResponse({ ok: true });

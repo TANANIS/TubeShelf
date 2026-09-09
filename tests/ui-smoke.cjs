@@ -38,15 +38,16 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     await page.locator("#auto-results").waitFor({ state: "visible" });
     const autoChrome = await page.locator("#auto-dialog").evaluate((dialog) => {
       const clone = dialog.cloneNode(true);
-      clone.querySelectorAll(".suggestion-copy small").forEach((node) => node.remove());
+      clone.querySelectorAll(".suggestion-copy").forEach((node) => node.remove());
       return clone.innerText;
     });
     assert.match(autoChrome, /Local dictionary/);
     assert.match(autoChrome, /Low \d+/);
     assert.doesNotMatch(autoChrome, /[\u3400-\u9fff]/);
-    const suggestionChecks = page.locator('[data-auto-group]');
+    const suggestionChecks = page.locator('[data-auto-channel]');
     assert.ok(await suggestionChecks.count() > 0);
-    for (let index = 0; index < await suggestionChecks.count(); index += 1) assert.equal(await suggestionChecks.nth(index).isChecked(), true);
+    for (let index = 0; index < await suggestionChecks.count(); index += 1) assert.equal(await suggestionChecks.nth(index).isChecked(), await suggestionChecks.nth(index).getAttribute('data-confidence') === 'high');
+    await page.screenshot({path:'work/classification-review-en.png',fullPage:true});
 
     await page.goto("http://127.0.0.1:8766/extension/popup/popup.html?lang=en", { waitUntil: "networkidle" });
     assert.match(await page.locator("body").innerText(), /Your subscriptions, organized your way/);
@@ -70,6 +71,12 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     assert.equal(await classification.locator(".ts-channel-classification-label").innerText(), "Groups");
     assert.equal(await classification.locator(".ts-channel-classification-group").innerText(), "Gaming");
     assert.equal(await control.locator(".ts-current-trigger").innerText(), "Groups");
+    await control.locator('.ts-current-favorite').click();
+    await content.waitForFunction(()=>document.querySelector('.ts-current-favorite')?.getAttribute('aria-pressed')==='true');
+    assert.deepEqual(await content.evaluate(()=>__getStoredState().favoriteChannelIds),['/@mattsgamenight']);
+    assert.deepEqual(await content.evaluate(()=>__getStoredState().groups.map(g=>g.channelIds)),[['/@mattsgamenight'],[]]);
+    await control.locator('.ts-current-favorite').click();
+    await content.waitForFunction(()=>document.querySelector('.ts-current-favorite')?.getAttribute('aria-pressed')==='false');
     assert.equal(await control.evaluate((node) => node.previousElementSibling?.classList.contains("ytFlexibleActionsViewModelAction")), true);
     assert.equal(await control.evaluate((node) => node.parentElement?.tagName), "YT-FLEXIBLE-ACTIONS-VIEW-MODEL");
     await control.locator(".ts-current-trigger").click();
@@ -79,6 +86,18 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     assert.equal(await learningMembership.isChecked(), false);
     await learningMembership.click();
     assert.equal(await control.locator('[data-ts-current-group="learning"]').isChecked(), true);
+    await content.evaluate(()=>{
+      document.querySelector('yt-page-header-view-model').hidden=true;
+      document.body.insertAdjacentHTML('beforeend','<ytd-watch-metadata><div id="owner"><a href="/@mattsgamenight">Matt\'s Game Night</a><yt-subscribe-button-view-model subscribed><button>Subscribed</button></yt-subscribe-button-view-model></div></ytd-watch-metadata>');
+      history.replaceState({},'', '/watch?v=normal00001');
+      document.dispatchEvent(new Event('yt-navigate-finish'));
+    });
+    await content.waitForFunction(()=>document.querySelector('#tubeshelf-channel-control')?.closest('ytd-watch-metadata'));
+    await control.locator('.ts-current-favorite').click();
+    await content.waitForFunction(()=>document.querySelector('.ts-current-favorite')?.getAttribute('aria-pressed')==='true');
+    assert.deepEqual(await content.evaluate(()=>__getStoredState().favoriteChannelIds),['/@mattsgamenight']);
+    await content.screenshot({path:'work/watch-favorite-en.png',fullPage:true});
+    await content.evaluate(()=>document.querySelector('ytd-watch-metadata').remove());
 
     await content.evaluate(() => {
       const next = globalThis.__getStoredState();

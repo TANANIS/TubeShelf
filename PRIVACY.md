@@ -1,6 +1,6 @@
 # TubeShelf Privacy Policy / 隱私權政策
 
-Last updated / 最後更新：2026-09-07
+Last updated / 最後更新：2026-09-09
 
 ## 繁體中文
 
@@ -13,6 +13,8 @@ TubeShelf 的單一用途是協助使用者在 YouTube 上整理、篩選與管�
 TubeShelf 不會建立一般網頁瀏覽紀錄，也不會記錄使用者造訪過的其他網站、滑鼠位置、按鍵輸入、一般點擊歷史或其他與 TubeShelf 核心功能無關的瀏覽活動。
 
 ### 本機儲存
+
+「最關注頻道」名單也儲存在本機。開啟關注頁或更新影片時，TubeShelf 會直接向 YouTube 取得所選頻道的公開頁面及影片 RSS／Atom 資料，並從 YouTube 圖片服務顯示影片縮圖。關閉 Shorts 時，會改用頻道的一般影片分頁。影片資料只做短期記憶體快取，不會建立觀看紀錄，也不需要 API Key。
 
 上述 TubeShelf 資料預設只儲存在使用者瀏覽器的 `chrome.storage.local`。TubeShelf 不經營開發者伺服器，不傳送遙測或分析資料，不出售使用者資料，也不將資料用於廣告、信用評估、保險或其他與 TubeShelf 單一用途無關的目的。
 
@@ -60,6 +62,8 @@ To provide subscription organization features, TubeShelf processes publicly visi
 TubeShelf does not create a general browsing history and does not record websites visited outside its YouTube functionality, mouse position, keystrokes, general click history, or other browsing activity unrelated to TubeShelf's core functionality.
 
 ### Local storage
+
+The Favorites list is also stored locally. Opening Favorites or refreshing videos retrieves selected channels' public pages and RSS/Atom feeds directly from YouTube, and displays thumbnails from YouTube's image service. When Shorts are hidden, the normal Videos tab is used instead of RSS/Atom. Video data is cached briefly in memory; this feature does not create viewing history or require an API key.
 
 TubeShelf data is stored locally in the user's browser using `chrome.storage.local` by default. TubeShelf operates no developer-controlled server, sends no telemetry or analytics, does not sell user data, and does not use user data for advertising, credit decisions, insurance, or other purposes unrelated to TubeShelf's single purpose.
 

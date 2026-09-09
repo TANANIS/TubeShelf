@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "1.18.7",
+  "version": "1.19.0",
   "description": "__MSG_appDescription__",
   "default_locale": "en",
   "permissions": ["storage"],
@@ -35,7 +35,7 @@
     },
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["shared.js", "content/content.js"],
+      "js": ["shared.js", "content/favorites.js", "content/content.js"],
       "css": ["content/content.css"],
       "run_at": "document_idle"
     }

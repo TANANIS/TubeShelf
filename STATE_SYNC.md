@@ -10,6 +10,8 @@ Frontends send a `TUBESHELF_MUTATE` runtime message containing one semantic oper
 
 - `toggle-membership`
 - `bulk-membership`
+- `edit-memberships`
+- `edit-favorites`
 - `set-subscription`
 - `coalesce-channel-identities`
 - `set-setting`
@@ -35,7 +37,29 @@ The background service worker serializes operations through one promise queue. F
 
 Install/update schema migration uses the same queue and also advances `revision`, so already-open frontends cannot mistake a normalized migration for an old duplicate.
 
+Only `runtime.onInstalled` with `reason: install` opens `dashboard/dashboard.html?view=settings`, after the initial state commit has completed. Update events do not open tabs or reset `settings.onboardingComplete`. The dashboard's existing onboarding-completion flag controls whether the welcome tutorial appears; skipping or finishing still uses `set-onboarding-complete` through the mutation queue. The initial Preferences URL is a presentation choice, not a persisted preference or a reason to force a completed tutorial to repeat.
+
 Do not add a frontend code path that accepts a state snapshot and writes it back. Add a semantic operation instead.
+
+## Staged selections and favorites (schema 15)
+
+`favoriteChannelIds` is a separate, ordered list of existing channel record IDs. Normalization resolves aliases, removes duplicates/missing records, and defaults older backups to an empty list. Strong identity coalescing preserves favorites. Definitive channel removal also removes its favorite reference. Group membership and favorite membership are independent.
+
+Dashboard member editing keeps temporary changes in memory; Cancel performs no mutation and Save sends one `edit-memberships` operation (with `groupId`). Favorites now apply immediately: the searchable group-filtered picker and channel/watch-page star each send `edit-favorites`. Both operations contain `changes: [{ channelId, enabled }]`. The queue applies only touched IDs against current state, preserving concurrent edits to other channels and never recreating a deleted channel. Failed favorite mutations retain the committed selection for retry; closing the picker does not undo successful changes.
+
+Favorites use `/feed/subscriptions#tubeshelf-view=favorites` and mount in that page's `#primary`. Native children are hidden only while this view is active; navigation and disabling TubeShelf restore them. The guide entry stays visible above the collapsible group heading.
+
+`TUBESHELF_FAVORITE_FEED` is a read-only background request restricted to existing favorites while enabled. Public YouTube channel metadata resolves the page owner when a stable ID is unavailable, then the YouTube Atom feed supplies video IDs, titles and publication dates. There is no API key requirement. Requests use a 20-second timeout, a three-request concurrency limit, per-channel request deduplication and an in-memory five-minute cache capped at 100 entries. Opening the view loads the list; refresh bypasses the cache. Individual failures keep previously loaded videos visible and expose retry. No polling or viewing history is added.
+
+When `settings.hideShorts` is true, Favorites instead reads the selected channel Videos tab from public `ytInitialData`. Only recognized normal video cards are accepted; Shorts links/reel endpoints, shelves and playlists are excluded. Missing or unrecognized data produces a retryable error, never an RSS fallback. Cache and in-flight keys include the Shorts mode. A live mode change clears rendered video data and advances the request generation, so stale RSS replies cannot restore Shorts. Same-mode retry failures may retain previously verified normal videos.
+
+## Classification review and starter groups
+
+Classification folds common Traditional/Simplified variants in derived matching text only, removes contact/URL noise, matches English word boundaries, caps correlated phrase scores per field and deduplicates repeated titles and official topic groups. Specific subjects and explicit group-name aliases reuse existing IDs, names and memberships. Personal vocabulary still derives only from stored manual labels; model suggestions do not train themselves.
+
+The review UI exposes individual `(groupId, channelId)` choices and reasons. Only high-confidence primary suggestions are checked initially; competing candidates are unchecked. One channel can be selected for several groups. Accepted revisions recompute suggestions while retaining existing checkbox choices. `apply-auto-suggestions` revalidates against the current unfiled set before applying all selected destinations, preserving concurrent manual filing. Failed saves leave choices available for retry.
+
+`add-group-templates` accepts known catalog `groupIds` and only adds missing empty groups. It resolves existing canonical IDs and explicit name aliases, ignores unknown/duplicate IDs and is idempotent. The optional picker is available in Preferences and onboarding; existing groups, manual labels, favorites and channel records are preserved. No schema reset or automatic group replacement occurs.
 
 ## Channel identity standard
 

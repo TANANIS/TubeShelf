@@ -2,6 +2,34 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Core = require("../extension/shared.js");
 
+test("favorite migration is idempotent, resolves aliases and drops missing records", () => {
+  const old = { version: 14, channels: { "/@one": { name: "One", channelId: "UCabcdefghijklmnopqrstuv" } } };
+  assert.deepEqual(Core.normalizeState(old).favoriteChannelIds, []);
+  const next = Core.normalizeState({ ...old, favoriteChannelIds: ["/@one", "/channel/UCabcdefghijklmnopqrstuv", "/@gone", null] });
+  assert.deepEqual(next.favoriteChannelIds, ["/@one"]);
+  assert.deepEqual(Core.normalizeState(next), next);
+  assert.deepEqual(Core.removeChannel(next, "/@one").favoriteChannelIds, []);
+});
+
+test("saved selection deltas retain concurrent edits and do not resurrect deleted channels", () => {
+  let state = Core.normalizeState({ channels: { "/@one": { name: "One" }, "/@two": { name: "Two" }, "/@three": { name: "Three" } }, groups: [{ id: "g", name: "Group", channelIds: ["/@one"] }] });
+  state = Core.applyStateOperation(state, { type: "toggle-membership", payload: { channelId: "/@three", groupId: "g", enabled: true } });
+  state = Core.applyStateOperation(state, { type: "edit-memberships", payload: { groupId: "g", changes: [{ channelId: "/@one", enabled: false }, { channelId: "/@two", enabled: true }] } });
+  assert.deepEqual(new Set(state.groups[0].channelIds), new Set(["/@two", "/@three"]));
+  state = Core.applyStateOperation(state, { type: "edit-favorites", payload: { changes: [{ channelId: "/@two", enabled: true }] } });
+  state = Core.applyStateOperation(state, { type: "edit-favorites", payload: { changes: [{ channelId: "/@one", enabled: true }, { channelId: "/@gone", enabled: true }] } });
+  assert.deepEqual(state.favoriteChannelIds, ["/@two", "/@one"]);
+  assert.deepEqual(new Set(state.groups[0].channelIds), new Set(["/@two", "/@three"]));
+  assert.throws(() => Core.applyStateOperation(state, { type: "edit-memberships", payload: { groupId: "gone", changes: [] } }), /Unknown group/);
+});
+
+test("favorite selection follows strongly coalesced channel identities", () => {
+  const state = Core.normalizeState({ channels: { "/@one": { name: "One" }, "/channel/ucabc": { name: "One" } }, favoriteChannelIds: ["/channel/ucabc"] });
+  const next = Core.coalesceChannelIdentities(state, { id: "/@one", url: "https://www.youtube.com/@one" }, ["/channel/ucabc"]);
+  assert.deepEqual(next.favoriteChannelIds, ["/@one"]);
+  assert.equal(Object.keys(next.channels).length, 1);
+});
+
 test("global power defaults on and preserves library and preferences across toggles", () => {
   const original = Core.normalizeState({ channels: { '/@one': { id: '/@one', name: 'One' } }, groups: [{ id: 'g', name: 'Group', channelIds: ['/@one'] }], settings: { hideShorts: true, blockHome: true } });
   assert.equal(original.settings.enabled, true);
@@ -38,7 +66,7 @@ test("YouTube page kinds keep recommendations separate from subscriptions", () =
 
 test("new distraction controls default off and migrate into saved state", () => {
   const defaults = Core.defaultState();
-  assert.equal(Core.VERSION, 14);
+  assert.equal(Core.VERSION, 15);
   assert.equal(defaults.revision, 0);
   assert.deepEqual(defaults.manualLabels, {});
   assert.equal(defaults.settings.blockHome, false);
@@ -230,12 +258,27 @@ test("removeChannel clears the channel, every group membership, and learned corr
 
 test("local classifier uses channel metadata and leaves ambiguous channels uncertain", () => {
   const game = Core.classifyChannel({ name: "Maker", description: "Godot game development", recentTitles: ["Unity tutorial"] });
-  assert.equal(game.groupId, "games");
+  assert.equal(game.groupId, "game-development");
   assert.equal(Core.classifyChannel({ name: "My Channel", description: "", recentTitles: [] }), null);
 });
 
+test('normal upload parser accepts only a selected Videos tab and excludes Shorts and related shelves', () => {
+  const video = {videoRenderer:{videoId:'normal00001',title:{simpleText:'Normal {"upload"}'},publishedTimeText:{simpleText:'2 days ago'}}};
+  const data = {contents:{twoColumnBrowseResultsRenderer:{tabs:[{tabRenderer:{selected:true,endpoint:{commandMetadata:{webCommandMetadata:{url:'/@one/videos'}}},content:{items:[video,video,
+    {videoRenderer:{videoId:'shorts00001',title:{simpleText:'Short'},navigationEndpoint:{reelWatchEndpoint:{videoId:'shorts00001'}}}},
+    {richSectionRenderer:{content:{videoRenderer:{videoId:'related0001',title:{simpleText:'Related'}}}}},
+    {lockupViewModel:{contentType:'LOCKUP_CONTENT_TYPE_VIDEO',contentId:'normal00002',metadata:{lockupMetadataViewModel:{title:{content:'New card'}}}}}
+  ]}}}]}}};
+  assert.deepEqual(Core.collectChannelUploads(Core.parseYouTubeInitialData('<script>var ytInitialData = '+JSON.stringify(data)+';</script>')).map(v=>v.id),['normal00001','normal00002']);
+  data.contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.selected=false;
+  assert.throws(()=>Core.collectChannelUploads(data),/not loaded/);
+  assert.throws(()=>Core.collectChannelUploads({}),/unavailable/);
+  assert.throws(()=>Core.parseYouTubeInitialData('<html>Consent required</html>'),/unavailable/);
+  assert.deepEqual(Core.collectChannelUploads({metadata:{channelMetadataRenderer:{}},contents:{twoColumnBrowseResultsRenderer:{tabs:[{tabRenderer:{endpoint:{commandMetadata:{webCommandMetadata:{url:'/@one/shorts'}}}}}]}}}),[]);
+});
+
 test("generic YouTube page keywords do not cause a technology classification", () => {
-  const result = Core.classifyChannel({ name: "兔級廚師", description: "", keywords: "影片, 分享, 可拍照的手機, 影像電話, 免費, 上傳", recentTitles: [] });
+  const result = Core.classifyChannel({ name: "Creator", description: "", keywords: "影片, 分享, 可拍照的手機, 影像電話, 免費, 上傳", recentTitles: [] });
   assert.equal(result, null);
 });
 
@@ -290,6 +333,61 @@ test("low confidence guesses are included in reviewable suggestions", () => {
   assert.equal(suggestions.groups[0].channels[0].confidence, "low");
   assert.deepEqual(suggestions.uncertain, []);
   assert.equal(suggestions.stats.low, 1);
+});
+
+test('classifier excludes contact noise, generic guides and English substring collisions', () => {
+  for (const description of ['Business E-mail: creator@example.com', '商業合作：請寄到 creator@example.com', 'cartoon market showcase']) {
+    assert.equal(Core.classifyChannel({name:'Creator',description}),null,description);
+  }
+  assert.equal(Core.classifyChannel({name:'Creator',recentTitles:['攻略 1','攻略 2','攻略 3']}),null);
+  assert.equal(Core.classifyChannel({name:'Creator',description:'Business inquiries: hi@example.com',recentTitles:['CPU comparison','GPU review','PC build tutorial']}).groupId,'technology');
+});
+
+test('matching folds common simplified text and handles drawing workout context per upload', () => {
+  assert.equal(Core.classifyChannel({name:'Creator',description:'软件 计算机 人工智能',recentTitles:['Claude 工具攻略','Codex 使用指南']}).groupId,'technology');
+  const drawing = Core.classifyChannel({name:'Creator',recentTitles:['绘画健身操 1 Drawing workout','绘画健身操 2 Drawing workout','绘画健身操 3 Drawing workout']});
+  assert.equal(drawing.groupId,'art');
+  assert.equal(drawing.alternatives.some(item=>item.groupId==='sports'),false);
+  assert.equal(Core.classifyChannel({name:'Creator',recentTitles:['Workout legs','Workout arms','Workout back']}).groupId,'sports');
+});
+
+test('repeated titles and duplicated official topic identifiers cannot inflate confidence', () => {
+  const once = Core.classifyChannel({name:'Creator',recentTitles:['Cooking recipe']});
+  assert.equal(Core.classifyChannel({name:'Creator',recentTitles:Array(15).fill('Cooking recipe')}),once);
+  const single = Core.classifyChannel({name:'Creator',topicCategories:['https://en.wikipedia.org/wiki/Music']});
+  const duplicate = Core.classifyChannel({name:'Creator',topicCategories:['https://en.wikipedia.org/wiki/Music'],topicIds:['/m/04rlf','/m/04rlf']});
+  assert.equal(duplicate.score,single.score);
+  assert.equal(duplicate.confidence,'medium');
+});
+
+test('specific subjects reuse existing custom groups and preserve their names', () => {
+  const state=Core.normalizeState({settings:{language:'en'},groups:[{id:'custom-dev',name:'遊戲開發',channelIds:[]},{id:'learning',name:'學習與成長',channelIds:[]}]});
+  const result=Core.classifyChannel({name:'Creator',description:'Godot game development and gaming'},state);
+  assert.equal(result.groupId,'custom-dev');
+  assert.equal(result.name,'遊戲開發');
+  assert.equal(Core.classifyChannel({name:'Creator',description:'心理學 哲學'},state).name,'學習與成長');
+  assert.equal(Core.classifyChannel({name:'Creator',description:'露營 camping bushcraft'}).groupId,'outdoors');
+  assert.equal(Core.classifyChannel({name:'Creator',description:'科學 物理 science'}).groupId,'science');
+});
+
+test('conflicting subjects stay unchecked candidates and can be applied to multiple groups', () => {
+  let state=Core.normalizeState({channels:{'/@mixed':{name:'Creator',description:'Music cooking'}},groups:[]});
+  const suggestions=Core.buildAutoGroupSuggestions(state);
+  assert.equal(suggestions.groups.length,2);
+  assert.ok(suggestions.groups.every(group=>group.channels[0].confidence==='low'));
+  state=Core.applyStateOperation(state,{type:'apply-auto-suggestions',payload:{groups:suggestions.groups}});
+  assert.equal(state.groups.filter(group=>group.channelIds.includes('/@mixed')).length,2);
+});
+
+test('starter groups are optional, idempotent and preserve imported group identities and memberships', () => {
+  const initial=Core.normalizeState({groups:[{id:'my-science',name:'科普知識',icon:'star',color:'#112233',channelIds:['/@one']}],channels:{'/@one':{name:'One'}},manualLabels:{'/@one':['my-science']},favoriteChannelIds:['/@one']});
+  const operation={type:'add-group-templates',payload:{groupIds:['science','game-development','game-development','invalid']}};
+  const next=Core.applyStateOperation(initial,operation);
+  assert.equal(next.groups.length,2);
+  assert.deepEqual(next.groups[0],initial.groups[0]);
+  assert.deepEqual(next.manualLabels,initial.manualLabels);
+  assert.deepEqual(next.favoriteChannelIds,initial.favoriteChannelIds);
+  assert.deepEqual(Core.applyStateOperation(next,operation),next);
 });
 
 test("repeated recent-video signals improve local classification coverage", () => {

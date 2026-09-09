@@ -5,9 +5,27 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = 14;
+  const VERSION = 15;
   const LANGUAGES = ["zh-TW", "en"];
   const UI_TEXT_EN = {
+    "點擊頻道可在 YouTube 開啟；使用詳細資料調整分類。": "Open a channel on YouTube; use Details to edit its groups.",
+    "在 YouTube 開啟": "Open on YouTube", "詳細資料": "Details",
+    "最關注頻道": "Favorites", "挑選你最想關注的頻道，集中查看最新影片。": "Choose the channels you care about and catch up on their latest videos.",
+    "新增頻道": "Add channels", "管理關注頻道": "Manage favorites", "更新影片": "Refresh videos", "最新影片": "Latest videos",
+    "已關注": "Following", "取消關注": "Unfollow", "關注頻道": "Follow", "＋ 關注": "+ Follow", "依群組篩選": "Filter by group",
+    "搜尋或選擇群組，按一下即可加入或取消關注。": "Search or choose a group, then click to follow or unfollow.",
+    "科普知識": "Science", "故事": "Stories", "露營與生存": "Camping and survival", "遊戲開發": "Game development",
+    "選擇起始群組": "Choose starter groups", "只新增你勾選的群組，保留目前所有分類。": "Add only the groups you select. Your current groups and memberships are preserved.",
+    "新增所選群組": "Add selected groups", "請先勾選群組": "Select a group first", "群組已新增": "Groups added",
+    "逐一確認頻道建議；僅高信心預先勾選。同一頻道可選多個群組。": "Review each channel. Only high-confidence suggestions are preselected. You can choose multiple groups for a channel.",
+    "只有按下「套用建議」才會儲存已勾選的頻道分類。": "Selected channel assignments are saved only after you click Apply suggestions.",
+    "從已收集頻道中挑選": "Choose from your collected channels", "儲存變更": "Save changes", "取消編輯": "Cancel editing",
+    "勾選頻道後按儲存；取消不會修改群組。": "Select channels, then save. Cancel leaves the group unchanged.",
+    "點擊頻道可查看詳細資料與分類。": "Open a channel to view its details and groups.",
+    "尚未加入關注頻道": "No favorite channels yet", "先更新訂閱內容，再回來挑選頻道。": "Update your subscriptions, then come back to choose channels.",
+    "讀取最新影片中…": "Loading latest videos…", "目前沒有公開影片": "No public videos available", "影片讀取失敗，請重試。": "Could not load videos. Please retry.",
+    "重試": "Retry", "移除關注": "Remove favorite", "已儲存變更": "Changes saved", "儲存失敗，請重試。": "Could not save changes. Please retry.",
+    "尚未更新": "Not updated yet", "上次更新": "Last updated", "新增或移除頻道，儲存後套用。": "Add or remove channels, then save to apply.",
     "你的訂閱，照你的方式排好": "Your subscriptions, organized your way",
     "管理群組": "Manage groups", "管理 TubeShelf 群組": "Manage TubeShelf groups",
     "開啟 TubeShelf": "Open TubeShelf", "開啟 TubeShelf 訂閱整理": "Open TubeShelf subscription organizer",
@@ -227,6 +245,7 @@
   function localizeDom(root, language) {
     if (!root) return;
     const translateNode = (node) => {
+      if (node.parentElement?.closest('[translate="no"]')) return;
       const match = String(node.nodeValue || "").match(/^(\s*)(.*?)(\s*)$/s);
       if (match?.[2]) node.nodeValue = `${match[1]}${translateUiText(match[2], language)}${match[3]}`;
     };
@@ -255,6 +274,11 @@
   };
 
   const AUTO_GROUPS = [
+    { id: "game-development", name: "遊戲開發", icon: "code", color: "#369e98" },
+    { id: "science", name: "科普知識", icon: "book", color: "#639cde" },
+    { id: "stories", name: "故事", icon: "book", color: "#ba8c62" },
+    { id: "outdoors", name: "露營與生存", icon: "star", color: "#619f68" },
+    { id: "vtuber", name: "VTuber", icon: "sparkles", color: "#ba7ee0" },
     { id: "games", name: "遊戲", icon: "game", color: "#2dbd9b", keywords: ["遊戲", "實況", "攻略", "電競", "手遊", "主機", "game", "gaming", "gameplay", "gamer", "esports", "steam", "nintendo", "playstation", "xbox", "minecraft", "godot", "unity", "osu", "gta", "pokemon"] },
     { id: "music", name: "音樂", icon: "music", color: "#ff6b8a", keywords: ["音樂", "歌曲", "歌手", "翻唱", "演奏", "鋼琴", "吉他", "樂團", "作曲", "music", "song", "singer", "cover", "concert", "piano", "guitar", "jazz", "lofi", "lyrics", "official audio", "official mv"] },
     { id: "technology", name: "科技", icon: "code", color: "#4a91ff", keywords: ["科技", "程式", "軟體", "硬體", "電腦", "開發者", "人工智慧", "手機", "評測", "tech", "technology", "programming", "coding", "developer", "software", "hardware", "computer", "windows", "linux", "javascript", "python", "android", "iphone", "chatgpt", "ai"] },
@@ -271,15 +295,18 @@
   ];
 
   const INTERNAL_TOPICS = [
+    { id: "stories", label: "故事與敘事", groupId: "stories", phrases: ["說故事", "故事", "懸疑", "未解之謎", "都市傳說", "案件", "奇聞", "storytelling", "true crime", "unsolved mystery", "urban legend"] },
+    { id: "outdoors", label: "露營與生存", groupId: "outdoors", phrases: ["露營", "野營", "野外生存", "荒野求生", "野炊", "camping", "camper", "bushcraft", "outdoor survival", "survival shelter"] },
+    { id: "vtuber", label: "虛擬創作者", groupId: "vtuber", phrases: ["虛擬實況主", "vtuber", "hololive", "nijisanji", "にじさんじ", "ホロライブ"] },
     { id: "gameplay", label: "遊戲內容", groupId: "games", phrases: ["遊戲實況", "遊戲攻略", "新手攻略", "gameplay", "gaming", "let's play", "実況", "ゲーム実況", "攻略", "手遊", "電競", "esports", "steam", "nintendo", "playstation", "xbox", "minecraft", "pokemon", "gta"] },
-    { id: "game-development", label: "遊戲開發", groupId: "games", phrases: ["遊戲開發", "遊戲製作", "game development", "game dev", "gamedev", "godot", "unity tutorial", "unreal engine", "indie game"] },
+    { id: "game-development", label: "遊戲開發", groupId: "game-development", phrases: ["遊戲開發", "遊戲製作", "game development", "game dev", "gamedev", "godot", "unity tutorial", "unreal engine", "devlog"] },
     { id: "music-performance", label: "音樂與演奏", groupId: "music", phrases: ["音樂", "歌曲", "歌手", "翻唱", "演奏", "鋼琴", "吉他", "樂團", "音楽", "歌ってみた", "演奏してみた", "music", "song", "singer", "cover song", "concert", "piano", "guitar", "jazz", "lofi", "lyrics", "official audio", "official mv"] },
     { id: "music-production", label: "音樂製作", groupId: "music", phrases: ["音樂製作", "編曲", "混音", "作曲", "beatmaking", "music production", "mixing", "mastering", "composer", "vocaloid"] },
     { id: "software", label: "程式與軟體", groupId: "technology", phrases: ["程式設計", "軟體開發", "網頁開發", "開發者", "programming", "coding", "developer", "software", "javascript", "typescript", "python", "rust language", "linux", "github", "open source"] },
     { id: "hardware", label: "電腦與硬體", groupId: "technology", phrases: ["電腦硬體", "電腦組裝", "顯示卡", "處理器", "主機板", "硬體評測", "computer hardware", "pc build", "graphics card", "gpu review", "cpu review", "laptop review"] },
     { id: "consumer-tech", label: "消費科技", groupId: "technology", phrases: ["科技評測", "手機評測", "開箱評測", "智慧型手機", "ガジェット", "tech review", "technology", "smartphone", "android", "iphone", "ipad", "wearable"] },
     { id: "artificial-intelligence", label: "人工智慧", groupId: "technology", phrases: ["人工智慧", "機器學習", "生成式 ai", "大型語言模型", "machine learning", "generative ai", "large language model", "chatgpt", "stable diffusion", "midjourney"], excludes: ["ai cover", "ai翻唱", "ai 翻唱"] },
-    { id: "science", label: "科學與科普", groupId: "learning", phrases: ["科普", "科學", "物理", "化學", "生物學", "天文", "science", "scientific", "physics", "chemistry", "biology", "astronomy", "explained"] },
+    { id: "science", label: "科學與科普", groupId: "science", phrases: ["科普", "科學", "物理", "化學", "生物學", "天文", "宇宙", "量子", "science", "scientific", "physics", "chemistry", "biology", "astronomy"] },
     { id: "humanities", label: "人文與歷史", groupId: "learning", phrases: ["歷史", "哲學", "心理學", "社會學", "法律", "考古", "history", "philosophy", "psychology", "sociology", "law", "archaeology", "documentary"] },
     { id: "education", label: "教育與課程", groupId: "learning", phrases: ["教育", "學習", "課程", "講座", "教學頻道", "語言學習", "education", "educational", "course", "lecture", "language learning", "lesson", "tutorial"] },
     { id: "journalism", label: "新聞與報導", groupId: "news", phrases: ["新聞", "時事", "國際新聞", "調查報導", "記者", "新聞網", "news", "current affairs", "reporter", "journalism", "breaking news", "world news"] },
@@ -306,6 +333,7 @@
     { id: "daily-life", label: "生活紀錄", groupId: "life", phrases: ["生活日常", "日常生活", "家庭生活", "育兒", "daily vlog", "daily life", "family vlog", "parenting", "lifestyle vlog"] }
   ];
   const TOPIC_LABEL_EN = {
+    "stories": "Stories and narratives", "outdoors": "Camping and survival", "vtuber": "Virtual creators",
     "gameplay": "Gaming", "game-development": "Game development", "music-performance": "Music and performance", "music-production": "Music production",
     "software": "Programming and software", "hardware": "Computers and hardware", "consumer-tech": "Consumer technology", "artificial-intelligence": "Artificial intelligence",
     "science": "Science", "humanities": "Humanities and history", "education": "Education and courses", "journalism": "News and reporting",
@@ -369,6 +397,7 @@
       groups: clone(DEFAULT_GROUPS).map((group) => ({ ...group, name: language === "en" ? UI_TEXT_EN[group.name] || group.name : group.name })),
       channels: {},
       channelAliases: {},
+      favoriteChannelIds: [],
       manualLabels: {},
       settings: {
         enabled: true,
@@ -463,6 +492,7 @@
       groups,
       channels,
       channelAliases,
+      favoriteChannelIds: [...new Set((Array.isArray(input.favoriteChannelIds) ? input.favoriteChannelIds : []).map(resolvePersistedId).filter(Boolean))],
       manualLabels,
       settings: {
         enabled: typeof rawSettings.enabled === "boolean" ? rawSettings.enabled : true,
@@ -667,6 +697,7 @@
     };
 
     const identitySet = new Set(resolvedIds);
+    next.favoriteChannelIds = [...new Set(next.favoriteChannelIds.map((id) => identitySet.has(id) ? primaryId : id))];
     next.groups = next.groups.map((group) => ({
       ...group,
       channelIds: [...new Set(group.channelIds.map((id) => identitySet.has(id) ? primaryId : id))]
@@ -696,15 +727,31 @@
     return Object.keys(current.channels).filter((id) => !filed.has(id));
   }
 
+  // Fold common script variants for matching only; never rewrite stored user text.
+  const SCRIPT_PAIRS = "学學习習戏戲开開发發软軟计計机機电電脑腦显顯处處块塊绘繪画畫动動畫畫设設摄攝艺藝术術乐樂讲講说說识識经經济濟财財业業资資频頻实實录錄网網体體运運营營车車关關键鍵声聲传傳闻聞谜謎悬懸爱愛宠寵观觀众眾灵靈类類书書极極国國厨廚营營险險线線数數据據语語应應视視测測评評业業务務联聯络絡团團练練统統战戰争爭历歷时時间間见見读讀称稱话話细細节節专專题題产產质質种種装裝门門罗羅万萬进進气氣备備术術别別后後制製造造";
+  const SCRIPT_MAP = new Map(SCRIPT_PAIRS.match(/../gu).map((pair) => [pair[0], pair[1]]));
+  const KEYWORD_MATCHERS = new Map();
+  function classificationText(value) {
+    return String(value || "").normalize("NFKC").toLowerCase().replace(/./gu, (char) => SCRIPT_MAP.get(char) || char)
+      .replace(/人工智能/g, "人工智慧").replace(/軟件/g, "軟體").replace(/計算機/g, "電腦").replace(/視頻/g, "影片");
+  }
+  function contentText(value) {
+    return classificationText(value).replace(/https?:\/\/\S+|[\w.+-]+@[\w.-]+\.[a-z]{2,}/g, " ")
+      .replace(/(?:business\s+(?:e-?mail|inquir\w*|contact)|商[業務]\s*(?:合作|聯[絡繫])|合作邀約)[^\n。！？]*/g, " ");
+  }
   function keywordMatches(text, keyword) {
     const source = String(text || "").toLowerCase();
-    const needle = String(keyword || "").toLowerCase();
+    if (KEYWORD_MATCHERS.has(keyword)) return KEYWORD_MATCHERS.get(keyword)(source);
+    const needle = classificationText(keyword);
     if (!needle) return false;
-    if (/^[a-z0-9]+$/.test(needle) && needle.length <= 3) {
+    if (/^[a-z0-9 '-]+$/.test(needle)) {
       const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(source);
+      const pattern = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+      KEYWORD_MATCHERS.set(keyword, (value) => pattern.test(value));
+    } else {
+      KEYWORD_MATCHERS.set(keyword, (value) => value.includes(needle));
     }
-    return source.includes(needle);
+    return KEYWORD_MATCHERS.get(keyword)(source);
   }
 
   function collectRecentVideos(initialData) {
@@ -733,6 +780,57 @@
     }
     visit(initialData);
     return videos;
+  }
+
+  function parseYouTubeInitialData(source) {
+    const marker = /(?:var\s+ytInitialData|window\["ytInitialData"\]|ytInitialData)\s*=\s*\{/g;
+    for (const match of String(source).matchAll(marker)) {
+      const start = match.index + match[0].length - 1;
+      let depth = 0, quoted = false, escaped = false;
+      for (let index = start; index < source.length; index++) {
+        const char = source[index];
+        if (quoted) { if (escaped) escaped = false; else if (char === "\\") escaped = true; else if (char === '"') quoted = false; continue; }
+        if (char === '"') quoted = true;
+        else if (char === "{") depth++;
+        else if (char === "}" && --depth === 0) { try { return JSON.parse(source.slice(start, index + 1)); } catch (_) { break; } }
+      }
+    }
+    throw new Error("YouTube channel data unavailable");
+  }
+
+  function collectChannelUploads(initialData) {
+    const tabs = initialData?.contents?.twoColumnBrowseResultsRenderer?.tabs?.map((item) => item.tabRenderer).filter(Boolean);
+    if (!tabs) throw new Error("YouTube video tab unavailable");
+    const tabPath = (tab) => String(tab?.endpoint?.commandMetadata?.webCommandMetadata?.url || "").split("?")[0].replace(/\/$/, "");
+    const videosTab = tabs.find((tab) => tabPath(tab).endsWith("/videos") || tab.tabIdentifier === "videos");
+    if (!videosTab) {
+      // A recognized channel with only a Shorts tab has no normal uploads.
+      if (initialData.metadata?.channelMetadataRenderer && tabs.some((tab) => tabPath(tab).endsWith("/shorts"))) return [];
+      throw new Error("YouTube video tab unavailable");
+    }
+    if (!videosTab.selected || !videosTab.content) throw new Error("YouTube video tab not loaded");
+    const text = (value) => value?.simpleText || value?.runs?.map((run) => run.text || "").join("") || "";
+    const result = new Map();
+    const visit = (node) => {
+      if (!node || typeof node !== "object" || result.size >= 30) return;
+      if (Array.isArray(node)) { node.forEach(visit); return; }
+      // Skip shelves, reels and playlists instead of traversing into related videos.
+      if (node.richSectionRenderer || node.reelShelfRenderer || node.reelItemRenderer || node.shelfRenderer) return;
+      const video = node.videoRenderer || node.gridVideoRenderer;
+      const lockup = node.lockupViewModel;
+      if (video || lockup) {
+        const card = video || lockup;
+        if (JSON.stringify(card).includes('"reelWatchEndpoint"') || /\/shorts\//.test(JSON.stringify(card))) return;
+        if (lockup && lockup.contentType !== "LOCKUP_CONTENT_TYPE_VIDEO") return;
+        const id = video?.videoId || lockup?.contentId;
+        const title = video ? text(video.title) : lockup?.metadata?.lockupMetadataViewModel?.title?.content;
+        if (/^[\w-]{11}$/.test(id || "") && title) result.set(id, { id, title: String(title).slice(0, 500), published: "", publishedLabel: video ? text(video.publishedTimeText) : "", format: "video" });
+        return;
+      }
+      Object.values(node).forEach(visit);
+    };
+    visit(videosTab.content);
+    return [...result.values()];
   }
 
   function collectRecentVideoTitles(initialData) {
@@ -776,7 +874,7 @@
     const parts = [channel?.name, channel?.description, channel?.keywords, ...(Array.isArray(channel?.recentTitles) ? channel.recentTitles : [])].filter(Boolean);
     const tokens = new Set();
     for (const source of parts) {
-      const text = String(source).normalize("NFKC").toLowerCase();
+      const text = contentText(source);
       const words = text.match(/[a-z][a-z0-9+#.-]{2,}/g) || [];
       words.filter((word) => !LEARNING_STOP_WORDS.has(word)).forEach((word) => tokens.add(word));
       for (let index = 0; index < words.length - 1; index += 1) {
@@ -827,21 +925,33 @@
     });
   }
 
+  const GROUP_ALIASES = {
+    games: ["遊戲", "gaming"], music: ["音樂"], technology: ["科技"], learning: ["學習", "學習與成長", "learning", "learning and growth"],
+    news: ["新聞"], finance: ["財經", "投資", "finance"], art: ["藝術", "art"], entertainment: ["娛樂", "entertainment"],
+    food: ["美食"], sports: ["運動"], vehicles: ["汽機車"], animals: ["動物", "animals"], life: ["生活", "生活與解壓", "lifestyle"],
+    "game-development": ["遊戲開發", "game development"], science: ["科普", "科普知識", "science"], stories: ["故事", "stories"],
+    outdoors: ["露營與生存", "露營", "camping and survival"], vtuber: ["vtuber"]
+  };
   function groupMetadata(groupId, state) {
+    const groups = Array.isArray(state?.groups) ? state.groups : [];
+    const exact = groups.find((group) => group.id === groupId);
+    if (exact) return exact;
     const known = AUTO_GROUPS.find((group) => group.id === groupId);
-    if (known) return known;
-    return (Array.isArray(state?.groups) ? state.groups : []).find((group) => group.id === groupId) || { id: groupId, name: groupId, icon: "star", color: "#7c5cff" };
+    if (!known) return { id: groupId, name: groupId, icon: "star", color: "#7c5cff" };
+    const names = new Set([known.name, UI_TEXT_EN[known.name], ...(GROUP_ALIASES[groupId] || [])].filter(Boolean).map(classificationText));
+    return groups.find((group) => names.has(classificationText(group.name.trim()))) || known;
   }
 
   function classifyChannel(channel, state, learnedProfiles) {
-    const name = String(channel?.name || "");
-    const description = String(channel?.description || "");
-    const keywords = sanitizeChannelKeywords(`${channel?.keywords || ""}, ${(channel?.officialTags || []).join(", ")}`);
-    const titles = Array.isArray(channel?.recentTitles) ? channel.recentTitles : [];
+    const name = contentText(channel?.name);
+    const description = contentText(channel?.description);
+    const keywords = contentText(sanitizeChannelKeywords(`${channel?.keywords || ""}, ${(channel?.officialTags || []).join(", ")}`));
+    const titles = [...new Set((Array.isArray(channel?.recentTitles) ? channel.recentTitles : []).map(contentText))];
     const scores = new Map();
     const topicScores = [];
     function add(groupId, score, reason, source) {
       if (!groupId || score <= 0) return;
+      groupId = groupMetadata(groupId, state).id;
       if (!scores.has(groupId)) scores.set(groupId, { score: 0, reasons: [], sources: new Set() });
       const target = scores.get(groupId);
       target.score += score;
@@ -849,27 +959,31 @@
       if (source) target.sources.add(source);
     }
     for (const topic of INTERNAL_TOPICS) {
-      let score = 0;
-      const matches = [];
-      if ((topic.excludes || []).some((phrase) => keywordMatches(`${name} ${description} ${keywords} ${titles.join(" ")}`, phrase))) continue;
-      for (const phrase of topic.phrases) {
-        let matched = false;
-        if (keywordMatches(name, phrase)) { score += 7; matched = true; }
-        if (keywordMatches(keywords, phrase)) { score += 5; matched = true; }
-        if (keywordMatches(description, phrase)) { score += 4; matched = true; }
-        const titleHits = Math.min(4, titles.filter((title) => keywordMatches(title, phrase)).length);
-        if (titleHits) { score += titleHits === 1 ? 1 : 1 + titleHits * 1.75; matched = true; }
-        if (matched && matches.length < 3) matches.push(phrase);
-      }
+      const matches = new Set();
+      const weak = new Set(["攻略", "新手攻略", "tutorial", "lesson", "course", "career", "business", "職場", "商業", "explained"]);
+      const extra = { software: ["軟體", "程式", "電腦科學", "編程"], hardware: ["電腦", "顯卡", "cpu", "gpu", "主板", "筆電", "pc", "硬體", "處理器"], "artificial-intelligence": ["claude", "codex", "ai agent", "llm", "人工智能"], "visual-art": ["繪圖", "動畫", "animation"], cooking: ["廚師", "炒菜", "家常菜", "做菜", "烤肉"] };
+      const phrases = [...topic.phrases, ...(extra[topic.id] || [])].filter((phrase) => !weak.has(phrase));
+      const hits = (text) => {
+        if ((topic.excludes || []).some((phrase) => keywordMatches(text, phrase))) return 0;
+        if (topic.id === "fitness" && /繪畫|drawing|繪圖|畫畫/.test(text)) return 0;
+        let count = 0;
+        for (const phrase of phrases) if (keywordMatches(text, phrase)) { matches.add(phrase); count++; }
+        return count;
+      };
+      const nameHits = hits(name), keywordHits = hits(keywords), descriptionHits = hits(description);
+      const titleHits = titles.filter((title) => hits(title)).length;
+      // Correlated synonyms in one field are capped; repeated distinct uploads carry more evidence.
+      const score = (nameHits ? 7 : 0) + Math.min(8, keywordHits * 4) + Math.min(8, descriptionHits * 4) + (titleHits === 1 ? 1 : Math.min(12, titleHits * 2.5));
       if (score > 0) {
-        topicScores.push({ ...topic, score });
+        topicScores.push({ ...topic, groupId: groupMetadata(topic.groupId, state).id, score, titleHits });
         const topicLabel = state?.settings?.language === "en" ? TOPIC_LABEL_EN[topic.id] || topic.label : topic.label;
-        add(topic.groupId, score, `${topicLabel}: ${matches.join(", ")}`, "dictionary");
+        add(topic.groupId, score, `${topicLabel}: ${[...matches].slice(0, 3).join(", ")}`, "dictionary");
       }
     }
+    const officialGroups = new Set();
     for (const topic of [...(channel?.topicCategories || []), ...(channel?.topicIds || [])]) {
       const groupId = officialTopicGroup(topic);
-      if (groupId) add(groupId, 10, `${state?.settings?.language === "en" ? "YouTube topic" : "YouTube 主題"}: ${normalizedTopicName(topic)}`, "official");
+      if (groupId && !officialGroups.has(groupId)) { officialGroups.add(groupId); add(groupId, 10, `${state?.settings?.language === "en" ? "YouTube topic" : "YouTube 主題"}: ${normalizedTopicName(topic)}`, "official"); }
     }
     const categoryCounts = channel?.videoCategoryCounts && typeof channel.videoCategoryCounts === "object" ? channel.videoCategoryCounts : {};
     const categoryTotal = Object.values(categoryCounts).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
@@ -887,18 +1001,25 @@
       const score = Math.min(14, matched.reduce((sum, term) => sum + term.weight, 0));
       if (score > 0) add(profile.groupId, score, `${state?.settings?.language === "en" ? "Personal vocabulary" : "個人詞彙"}: ${matched.map((term) => term.term).join(", ")}`, "personal");
     }
+    // Prefer an evidenced specific subject over its broad parent, without erasing alternatives.
+    for (const [specific, broad] of [["game-development", "games"], ["science", "learning"]]) {
+      const specificId = groupMetadata(specific, state).id, broadId = groupMetadata(broad, state).id;
+      if (specificId !== broadId && topicScores.some((topic) => topic.groupId === specificId && topic.score >= 6) && scores.has(broadId)) scores.get(broadId).score *= 0.5;
+    }
     const ranked = [...scores.entries()].map(([groupId, result]) => {
       const meta = groupMetadata(groupId, state);
       const tags = topicScores.filter((topic) => topic.groupId === groupId).sort((a, b) => b.score - a.score).slice(0, 3).map((topic) => state?.settings?.language === "en" ? TOPIC_LABEL_EN[topic.id] || topic.label : topic.label);
-      const displayName = state?.settings?.language === "en" ? UI_TEXT_EN[meta.name] || meta.name : meta.name;
+      const existing = state?.groups?.some((group) => group.id === meta.id);
+      const displayName = !existing && state?.settings?.language === "en" ? UI_TEXT_EN[meta.name] || meta.name : meta.name;
       return { groupId, name: displayName, icon: meta.icon, color: meta.color, score: result.score, reasons: result.reasons, sources: [...result.sources], tags };
     }).sort((a, b) => b.score - a.score);
     const best = ranked[0];
     const runnerUp = ranked[1];
     const margin = best ? best.score - (runnerUp?.score || 0) : 0;
-    if (!best || best.score < 4 || (margin < 2 && best.score < 12)) return null;
+    if (!best || best.score < 4) return null;
     const confidence = best.score >= 15 && margin >= 6 ? "high" : best.score >= 6 && margin >= 3 ? "medium" : "low";
-    return { ...best, confidence, margin: Math.round(margin * 10) / 10, score: Math.round(best.score * 10) / 10 };
+    const alternatives = ranked.slice(1, 3).filter((item) => item.score >= 4 && item.score >= best.score * 0.55).map((item) => ({ ...item, confidence: "low", margin: 0 }));
+    return { ...best, confidence, alternatives, margin: Math.round(margin * 10) / 10, score: Math.round(best.score * 10) / 10 };
   }
 
   function buildAutoGroupSuggestions(state) {
@@ -914,10 +1035,12 @@
       if (!result) { uncertain.push(channel.id); continue; }
       stats[result.confidence] += 1;
       result.sources.forEach((source) => { if (source in stats) stats[source] += 1; });
-      if (!suggestions.has(result.groupId)) suggestions.set(result.groupId, { ...result, channelIds: [], channels: [] });
-      const target = suggestions.get(result.groupId);
-      target.channelIds.push(channel.id);
-      target.channels.push({ id: channel.id, name: channel.name, reasons: result.reasons, confidence: result.confidence, score: result.score, margin: result.margin, tags: result.tags, sources: result.sources });
+      for (const candidate of [result, ...result.alternatives]) {
+        if (!suggestions.has(candidate.groupId)) suggestions.set(candidate.groupId, { ...candidate, channelIds: [], channels: [] });
+        const target = suggestions.get(candidate.groupId);
+        target.channelIds.push(channel.id);
+        target.channels.push({ id: channel.id, name: channel.name, reasons: candidate.reasons, confidence: candidate.confidence, score: candidate.score, margin: candidate.margin, tags: candidate.tags, sources: candidate.sources });
+      }
     }
     return { groups: [...suggestions.values()], uncertain, stats, learnedProfileCount: learnedProfiles.length };
   }
@@ -992,6 +1115,21 @@
       if (!channelId || !updateMembershipInPlace(next, channelId, String(payload.groupId || ""), Boolean(payload.enabled))) throw new Error("Invalid membership operation");
       return normalizeState(next);
     }
+    if (type === "edit-memberships" || type === "edit-favorites") {
+      const groupId = String(payload.groupId || "");
+      if (type === "edit-memberships" && !current.groups.some((group) => group.id === groupId)) throw new Error("Unknown group");
+      const favorites = new Set(current.favoriteChannelIds);
+      for (const change of Array.isArray(payload.changes) ? payload.changes : []) {
+        if (typeof change?.enabled !== "boolean") throw new Error("Invalid selection change");
+        const id = resolveChannelRecordId(current, change.channelId);
+        if (!id) continue; // A concurrent deletion must not recreate a channel.
+        if (type === "edit-memberships") updateMembershipInPlace(current, id, groupId, change.enabled);
+        else if (change.enabled) favorites.add(id);
+        else favorites.delete(id);
+      }
+      current.favoriteChannelIds = [...favorites];
+      return normalizeState(current);
+    }
     if (type === "bulk-membership") {
       const next = current;
       const groupId = String(payload.groupId || "");
@@ -1020,6 +1158,16 @@
     }
     if (type === "set-language") return normalizeState({ ...current, settings: { ...current.settings, language: languageCode(payload.language) } });
     if (type === "set-onboarding-complete") return normalizeState({ ...current, settings: { ...current.settings, onboardingComplete: Boolean(payload.complete) } });
+    if (type === "add-group-templates") {
+      for (const id of new Set(Array.isArray(payload.groupIds) ? payload.groupIds : [])) {
+        const template = AUTO_GROUPS.find((group) => group.id === id);
+        if (!template) continue;
+        const existing = groupMetadata(id, current);
+        if (current.groups.some((group) => group.id === existing.id)) continue;
+        current.groups.push({ id: template.id, name: current.settings.language === "en" ? UI_TEXT_EN[template.name] || template.name : template.name, icon: template.icon, color: template.color, channelIds: [] });
+      }
+      return normalizeState(current);
+    }
     if (type === "save-group") {
       const next = current;
       const id = String(payload.id || "");
@@ -1115,6 +1263,8 @@
     groupForChannel,
     unfiledChannelIds,
     collectRecentVideos,
+    parseYouTubeInitialData,
+    collectChannelUploads,
     collectRecentVideoTitles,
     buildLearnedProfiles,
     classifyChannel,

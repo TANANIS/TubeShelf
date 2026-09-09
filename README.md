@@ -25,20 +25,21 @@
 
 **[Install TubeShelf from the Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb)**
 
-**Manual package: [Download TubeShelf 1.18.7](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.18.7/outputs/TubeShelf-1.18.7.zip)**
+**Manual package: [Download TubeShelf 1.19.0](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.19.0/outputs/TubeShelf-1.19.0.zip)**
 
-### What's new in 1.18.7
+### What's new in 1.19.0
 
-- Faster subscription filtering through a per-revision membership index, with bounded update scheduling and fewer redundant page scans.
-- A wider popup with more room for groups and a compact support footer.
-- A single power button to pause or resume TubeShelf on YouTube. Groups and preferences are preserved, and the saved power state survives reloads.
-- Support and feedback links in the popup, dashboard and YouTube panel. The subscription toolbar stays focused on filtering.
+- A Favorites view on YouTube with a searchable picker, up to six newest public videos per channel, publication dates, refresh and per-channel retry. Favorites persist separately from groups.
+- Dashboard cards now open channels on YouTube, with a separate Details button; Manage members uses searchable checkbox rows; bulk edits stage and commit as one delta.
+- Improved auto-grouping classification: handles script variants, strips contact noise, separates game development, science, stories, camping/survival and VTuber, with per-channel suggestion review.
+- Optional starter groups from onboarding and Preferences.
+- A single global power button to pause or resume TubeShelf on YouTube; groups and preferences are preserved.
 
-The local automated checks pass: 46 unit/static/background tests plus UI, performance and power-toggle browser harnesses. Signed-in YouTube verification remains pending. See [performance findings](PERFORMANCE.md) for the synthetic benchmark and its limits.
+The local automated checks pass: 61 unit/static/background tests plus UI, favorites, classification, onboarding, performance and power-toggle browser harnesses. Signed-in YouTube verification remains pending.
 
 <img src="work/popup-1.18.7-on.png" alt="TubeShelf 1.18.7 popup with a power button and expanded group list, using synthetic demo data" width="460">
 
-Package SHA-256: `b012f4612c4dfbb29efb0acb1f21920c5ee77ae3c82fabd69df2bfc1d3e9a08e`.
+Package SHA-256: `65c268673cf0f95d1e8686e37a2d1c7bde80802cdb1cd41b9be6fa82bc3e512c`.
 
 ### Chrome
 
@@ -46,7 +47,7 @@ Install the extension directly from the [Chrome Web Store](https://chromewebstor
 
 For manual installation:
 
-1. Download `TubeShelf-1.18.7.zip` from the release link above.
+1. Download `TubeShelf-1.19.0.zip` from the release link above.
 2. Extract the ZIP file.
 3. Open `chrome://extensions/`.
 4. Enable **Developer mode**.

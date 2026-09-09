@@ -20,13 +20,14 @@
   let guideCollapsed = true;
   const scanIdentityByAlias = new Map();
   const IDENTITY_BRIDGE_SOURCE = "tubeshelf-identity-bridge";
-  const OWN_UI_SELECTOR = '#tubeshelf-panel, #tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-launcher, #tubeshelf-backdrop, #tubeshelf-scan-progress, #tubeshelf-channel-control, #tubeshelf-channel-classification, .tubeshelf-card-classification';
+  const OWN_UI_SELECTOR = '#tubeshelf-favorites-page, #tubeshelf-panel, #tubeshelf-toolbar, #tubeshelf-guide-section, #tubeshelf-launcher, #tubeshelf-backdrop, #tubeshelf-scan-progress, #tubeshelf-channel-control, #tubeshelf-channel-classification, .tubeshelf-card-classification';
   let membershipsByChannel = new Map();
   let unfiledIds = [];
   let stateLoaded = false;
   let scanGeneration = 0;
   let autoplayRestore = null;
   let startupScanTimer = null;
+  const favorites = globalThis.createTubeShelfFavorites({ getState: () => state, commit, openGroup: openSubscriptionGroup });
   document.documentElement.classList.add("tubeshelf-disabled");
 
   function publishPowerState() {
@@ -34,6 +35,7 @@
   }
 
   function pauseIntegration() {
+    favorites.clear();
     observer.disconnect();
     clearTimeout(scanTimer);
     clearTimeout(subscriptionSyncTimer);
@@ -315,7 +317,8 @@
       host.insertAdjacentElement("afterend", control);
     }
     const memberships = new Set(channelGroups(channel.id).map((group) => group.id));
-    const signature = JSON.stringify([channel.id, channel.name, subscribed, [...memberships], state.groups.map((group) => [group.id, group.name, group.color])]);
+    const favorite = state.favoriteChannelIds.includes(recordId);
+    const signature = JSON.stringify([channel.id, channel.name, subscribed, favorite, currentLanguage(), [...memberships], state.groups.map((group) => [group.id, group.name, group.color])]);
     if (control.dataset.signature === signature) return;
     const wasOpen = control.classList.contains("ts-current-open");
     control.dataset.signature = signature;
@@ -325,10 +328,28 @@
       : '<span class="ts-current-empty">尚未建立群組</span>';
     control.innerHTML = `<button class="ts-current-trigger" type="button" aria-expanded="${wasOpen}" title="更改這個頻道的分類"><span>${Core.iconSvg("book", "currentColor", 15)}</span><span>分類</span></button><div class="ts-current-menu"><strong>${escapeHtml(channel.name)}</strong><small>${memberships.size ? "選擇所屬群組" : "目前在未分類"}</small><div>${options}</div><button data-ts-current-manage type="button">管理全部群組 ↗</button></div>`;
     control.classList.toggle("ts-current-open", wasOpen);
+    const star = document.createElement("button");
+    star.className = "ts-current-favorite";
+    star.type = "button";
+    star.setAttribute("aria-pressed", String(favorite));
+    star.title = Core.translateUiText(favorite ? "取消關注" : "關注頻道", currentLanguage());
+    star.textContent = `${favorite ? "★" : "☆"} ${Core.translateUiText(favorite ? "已關注" : "關注頻道", currentLanguage())}`;
+    control.append(star);
     localizeExtensionUi(control);
   }
 
   async function onCurrentChannelClick(event) {
+    const star = event.target.closest(".ts-current-favorite");
+    if (star) {
+      const id = currentChannelRecordId(currentChannelFromPage());
+      if (!id || star.disabled || currentSubscriptionStatus() === false) return;
+      star.disabled = true;
+      try {
+        await commit({ type: "edit-favorites", payload: { changes: [{ channelId: id, enabled: !state.favoriteChannelIds.includes(id) }] } });
+      } catch (_) { toast("儲存失敗，請重試。"); }
+      finally { star.disabled = false; renderCurrentChannelControl(); }
+      return;
+    }
     const trigger = event.target.closest(".ts-current-trigger");
     if (trigger) {
       const control = event.currentTarget;
@@ -498,6 +519,7 @@
   function integratedSignature() {
     return JSON.stringify({
       activeGroupId,
+      favorites: favorites.active(),
       groups: state.groups.map((group) => [group.id, group.name, group.icon, group.color, group.channelIds.length]),
       channels: Object.keys(state.channels).length,
       settings: state.settings,
@@ -510,9 +532,9 @@
     const unfiled = { id: "unfiled", name: "未分類", icon: "sparkles", color: "#f0a44b", channelIds: unfiledChannelIds() };
     return [all, unfiled, ...state.groups].map((group) => {
       if (className === "ts-guide-item") {
-        return `<button class="ts-guide-item ${isSubscriptionsPage() && group.id === activeGroupId ? "ts-active" : ""}" data-ts-group="${escapeHtml(group.id)}" type="button"><span class="ts-guide-dot" style="color:${group.color};background:${group.color}20">${Core.iconSvg(group.icon, "currentColor", 15)}</span><span class="ts-guide-name">${escapeHtml(group.id === "all" ? "全部訂閱" : group.name)}</span><span class="ts-guide-count">${group.channelIds.length}</span></button>`;
+        return `<button class="ts-guide-item ${isSubscriptionsPage() && !favorites.active() && group.id === activeGroupId ? "ts-active" : ""}" data-ts-group="${escapeHtml(group.id)}" type="button"><span class="ts-guide-dot" style="color:${group.color};background:${group.color}20">${Core.iconSvg(group.icon, "currentColor", 15)}</span><span class="ts-guide-name">${escapeHtml(group.id === "all" ? "全部訂閱" : group.name)}</span><span class="ts-guide-count">${group.channelIds.length}</span></button>`;
       }
-      return `<button class="ts-toolbar-chip ${isSubscriptionsPage() && group.id === activeGroupId ? "ts-active" : ""}" data-ts-group="${escapeHtml(group.id)}" type="button">${escapeHtml(group.name)} <small>${group.channelIds.length}</small></button>`;
+      return `<button class="ts-toolbar-chip ${isSubscriptionsPage() && !favorites.active() && group.id === activeGroupId ? "ts-active" : ""}" data-ts-group="${escapeHtml(group.id)}" type="button">${escapeHtml(group.name)} <small>${group.channelIds.length}</small></button>`;
     }).join("");
   }
 
@@ -541,11 +563,12 @@
   function renderIntegratedControls() {
     if (!state.settings.enabled) return;
     mountIntegratedControls();
+    favorites.render();
     const signature = integratedSignature();
     const guide = document.getElementById("tubeshelf-guide-section");
     if (guide && guide.dataset.signature !== signature) {
       guide.dataset.signature = signature;
-      guide.innerHTML = `<div class="ts-guide-heading"><span>TubeShelf 群組</span><span class="ts-guide-actions"><button class="ts-guide-toggle" data-ts-action="toggle-guide" type="button"><span aria-hidden="true">▴</span></button><button data-ts-action="update-subscriptions" type="button" title="更新訂閱內容" aria-label="更新訂閱內容">↻</button><button data-ts-action="manage" type="button" title="管理群組" aria-label="管理 TubeShelf 群組">＋</button></span></div><div class="ts-guide-list">${groupButtons("ts-guide-item")}</div>`;
+      guide.innerHTML = `<div class="ts-favorite-entry"><button class="ts-guide-item ${favorites.active() ? "ts-active" : ""}" data-ts-action="favorites" type="button" aria-current="${favorites.active() ? "page" : "false"}"><span class="ts-guide-dot">☆</span><span class="ts-guide-name">最關注頻道</span></button></div><div class="ts-guide-heading"><span>TubeShelf 群組</span><span class="ts-guide-actions"><button class="ts-guide-toggle" data-ts-action="toggle-guide" type="button"><span aria-hidden="true">▴</span></button><button data-ts-action="update-subscriptions" type="button" title="更新訂閱內容" aria-label="更新訂閱內容">↻</button><button data-ts-action="manage" type="button" title="管理群組" aria-label="管理 TubeShelf 群組">＋</button></span></div><div class="ts-guide-list">${groupButtons("ts-guide-item")}</div>`;
       localizeExtensionUi(guide);
     }
     if (guide) {
@@ -574,6 +597,12 @@
     }
     if (setting) {
       await changeSetting(setting, !state.settings[setting]);
+      return;
+    }
+    if (action === "favorites") {
+      if (!isSubscriptionsPage()) { location.assign("https://www.youtube.com/feed/subscriptions#tubeshelf-view=favorites"); return; }
+      location.hash = "tubeshelf-view=favorites";
+      renderIntegratedControls();
       return;
     }
     if (action === "toggle-guide") {

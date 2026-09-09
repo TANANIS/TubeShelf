@@ -1,8 +1,33 @@
 # TubeShelf Handoff
 
-Updated: 2026-09-08  
-Current extension version: **1.18.7 (local package)**  
-Current state schema: **14**
+Updated: 2026-09-10
+Current extension version: **1.19.0 (local package)**  
+Current state schema: **15**
+
+## Unreleased dashboard editing and favorites
+
+2026-09-10 follow-up: Favorites obeys the global Shorts setting. With Shorts hidden, the background parses only the selected public channel Videos tab, rejecting reel/Shorts cards and related shelves; failure never falls back to RSS. Mode-specific cache/pending keys and frontend generation invalidation prevent old RSS responses from reappearing after a toggle. The picker now supports search, group filtering and immediate follow/unfollow. A separate star beside Groups on channel/watch pages uses the same `edit-favorites` operation.
+
+Classification now folds common script variants, strips contact noise, applies English boundaries, caps correlated phrases per field, deduplicates titles and official topic groups, and recognizes game development, science, stories, camping/survival and VTuber separately. Existing named groups and manual labels are retained. Suggestions are reviewed per channel, with only high confidence preselected and competing candidates available for multiple assignments. Optional starter groups are available from onboarding and Preferences through idempotent `add-group-templates`.
+
+Read-only local replay used old backup metadata, current group definitions and no learned profiles. Several previously identified examples improved, but personal choices for comedy/documentary channels still differ from dictionary suggestions. This is a targeted regression replay, not a general accuracy benchmark; the original private backups remain outside the repository. `work/evaluate-classification.cjs` takes both backup paths and an optional name pattern, prints results locally and writes nothing.
+
+Follow-up gates: **61/61** unit/static/background tests and seven JavaScript syntax checks pass. Browser harnesses `ui-smoke`, `favorites-smoke`, `classification-smoke`, `onboarding-smoke`, `performance-smoke` and `power-smoke` pass. Added coverage includes Shorts mode cache segregation, late RSS rejection, both star entrypoints, immediate picker mutations, multi-group per-channel review, revision-preserved choices, failed-save retry and idempotent onboarding templates. Synthetic English/Traditional Chinese screenshots were visually inspected, including corrected review-column widths and visible Apply controls. Real signed-in YouTube and live public Videos-tab compatibility remain unverified. Source and unpacked mirror are synchronized; versioned ZIPs and manifest version are unchanged.
+
+First-install follow-up: after the initial state commit, `runtime.onInstalled` opens `dashboard/dashboard.html?view=settings` in an active tab only for `reason: install`. Dashboard honors this initial Preferences view and displays the existing welcome tutorial while onboarding is incomplete. Starting the tutorial continues the existing library/scan flow; skipping preserves the current view and commits completion. Normal dashboard URLs still open the library. Extension/browser updates only migrate state; they do not open tabs or reset onboarding.
+
+Follow-up verification: **53/53** unit/static/background tests, seven script syntax checks, existing UI smoke, and `tests/onboarding-smoke.cjs` pass. The added background tests cover installation sequencing and update preservation. English and Traditional Chinese browser fixtures cover Preferences landing, tutorial navigation, skip, persisted completion across reloads, and normal dashboard visits. The Traditional Chinese first-install screenshot in `work/first-install-zh-TW.png` was visually inspected. A real fresh-install browser event has not been exercised; the existing installed extension and user data were preserved.
+
+The current source and unpacked `outputs/extension/` mirror include unreleased changes; the manifest remains 1.18.7 and the existing versioned ZIP has not been rebuilt.
+
+- Dashboard cards open channels on YouTube, with a separate Details button. Manage members opens searchable checkbox rows. Bulk actions stage changes; Save commits one delta operation, Cancel writes nothing, and failed saves retain the draft. Finish or cancel editing before switching groups.
+- A single Favorites button sits above `ts-guide-heading`, outside the collapsed group list. It opens a dedicated view in YouTube subscriptions `#primary`, with a searchable picker for collected channels and up to six newest public videos per channel, publication dates, refresh and per-channel retry.
+- Favorites persist separately from groups through schema 15 and the background mutation queue. Alias reconciliation, import normalization and channel deletion maintain valid references. Videos are fetched directly from YouTube's public Atom feeds or the normal Videos tab when Shorts are hidden, with bounded concurrent work and transient caching; no API key or additional permissions.
+- Added `extension/content/favorites.js`, `tests/favorites-harness.html`, and `tests/favorites-smoke.cjs`.
+
+Verification: **51/51** unit/static/background checks, seven script syntax checks, existing UI/performance/power browser harnesses, and the new favorites browser smoke pass. The new smoke covers staged editing/cancel/save, persistence, publication order, partial network failure/retry, failed-save recovery, route restoration, and disabling/re-enabling the integration. English/light and Traditional Chinese/dark screenshots use synthetic fixtures in `work/`; layouts were visually inspected.
+
+Live YouTube feed verification and signed-in installed-extension validation are pending: an attempted public channel request from this environment failed to connect. Reload the existing unpacked extension and YouTube tabs to exercise the current source; preserve the installation and its storage. No publish, tag, push or store submission was performed.
 
 ## Current status
 

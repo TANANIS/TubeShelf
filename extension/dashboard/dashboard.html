@@ -66,6 +66,8 @@
                 <div class="member-bulk-actions">
                   <button id="add-filtered" class="button ghost compact" type="button">加入目前結果</button>
                   <button id="remove-filtered" class="button ghost compact" type="button">移出目前結果</button>
+                  <button id="cancel-members" class="button ghost compact" type="button">取消編輯</button>
+                  <button id="save-members" class="button primary compact" type="button">儲存變更</button>
                 </div>
               </div>
               <div id="channel-list" class="channel-list"></div>
@@ -75,6 +77,7 @@
 
         <section id="settings-view" hidden>
           <div class="settings-grid">
+            <article class="settings-card"><div><h2>選擇起始群組</h2><p>只新增你勾選的群組，保留目前所有分類。</p></div><button class="button ghost" type="button" data-open-templates>選擇起始群組</button></article>
             <article class="settings-card"><div><h2>減少 YouTube 干擾</h2><p>以下設定套用到所有 YouTube 頁面，與訂閱群組分類互相獨立。</p></div><div class="setting-list">
               <label class="setting-row"><span><strong>封鎖首頁推薦</strong><small>進入首頁時跳到訂閱內容，並隱藏所有首頁入口。</small></span><input type="checkbox" data-setting="blockHome" /></label>
               <label class="setting-row"><span><strong>關閉 Shorts</strong><small>封鎖 Shorts 頁面，並隱藏左側入口與短影音內容。</small></span><input type="checkbox" data-setting="hideShorts" /></label>
@@ -129,10 +132,12 @@
           <div class="progress-track"><span id="auto-progress-bar"></span></div>
         </div>
         <div id="auto-results" class="auto-step" hidden>
+          <p>逐一確認頻道建議；僅高信心預先勾選。同一頻道可選多個群組。</p>
           <div class="result-summary"><div><strong id="auto-result-count">0</strong><span>個頻道有分類建議</span></div><p id="auto-uncertain-count"></p></div>
           <div id="auto-confidence-summary" class="confidence-summary"></div>
           <div id="auto-suggestion-list" class="suggestion-list"></div>
-          <p class="result-note">取消勾選不想建立的群組。只有按下「套用建議」才會修改群組。</p>
+          <p class="result-note">只有按下「套用建議」才會儲存已勾選的頻道分類。</p>
+          <p id="auto-save-error" role="status"></p>
         </div>
         <div class="dialog-actions auto-actions">
           <button id="auto-cancel" type="button" class="button ghost">取消</button>
@@ -162,6 +167,7 @@
       </div>
     </dialog>
 
+    <dialog id="template-dialog" aria-labelledby="template-title"><div class="dialog-head"><h2 id="template-title">選擇起始群組</h2><button type="button" data-dialog-close class="close" aria-label="關閉">×</button></div><p>只新增你勾選的群組，保留目前所有分類。</p><div id="template-options" class="template-options"></div><p id="template-status" role="status"></p><footer><button id="template-apply" class="button primary" type="button">新增所選群組</button></footer></dialog>
     <div id="onboarding" class="onboarding" hidden>
       <div class="onboarding-shade"></div>
       <section class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
@@ -172,6 +178,7 @@
         <div id="onboarding-icon" class="onboarding-icon">✦</div>
         <h2 id="onboarding-title"></h2>
         <p id="onboarding-copy"></p>
+        <button class="button ghost compact" type="button" data-open-templates>選擇起始群組</button>
         <p id="onboarding-status" class="onboarding-status" hidden></p>
         <div id="onboarding-dots" class="onboarding-dots" aria-hidden="true"></div>
         <footer class="onboarding-actions">

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><base href="/"><link rel="stylesheet" href="/extension/content/content.css">
+<style>
+body { margin:0; font-family:Arial,sans-serif; background:#fff; } html[dark] body { background:#0f0f0f; }
+ytd-guide-renderer { display:block; width:230px; position:fixed; top:20px; left:0; } ytd-browse { display:block; margin-left:240px; } #primary { width:100%; } #native-feed { padding:40px; }
+</style>
+<script src="/extension/shared.js"></script><script>
+  const initialHash = location.hash || '#tubeshelf-group=all';
+  history.replaceState({}, '', '/feed/subscriptions' + initialHash);
+  let state = TubeShelfCore.normalizeState(JSON.parse(localStorage.getItem('favorite-fixture') || 'null') || {
+    channels: { '/@science': { name: 'Science Studio' }, '/@design': { name: 'Design Notes' }, '/@music': { name: 'Quiet Music' }, '/@empty': { name: 'No Uploads' } },
+    groups: [{ id:'learning', name:'Learning', icon:'book', color:'#7c5cff', channelIds:['/@science'] }],
+    settings: { language:'en', onboardingComplete:true }
+  });
+  globalThis.__feedCalls = [];
+  globalThis.__operations = [];
+  globalThis.__failDesign = true;
+  globalThis.__failSave = false;
+  let listener;
+  globalThis.__state = () => state;
+  globalThis.__change = (next) => { const old=state; state=TubeShelfCore.normalizeState(next); localStorage.setItem('favorite-fixture',JSON.stringify(state)); listener?.({tubeShelfState:{oldValue:old,newValue:state}},'local'); };
+  globalThis.chrome = {
+    storage: { local: { get: async () => ({tubeShelfState:state}) }, onChanged:{addListener:fn=>listener=fn} },
+    runtime: { onMessage:{addListener:()=>{}}, sendMessage: async (message) => {
+      if(message.type==='TUBESHELF_MUTATE') {
+        __operations.push(message.operation);
+        if (__failSave) return {ok:false,error:'Fixture save failure'};
+        const next=TubeShelfCore.applyStateOperation(state,message.operation); next.revision=state.revision+1; __change(next); return {ok:true,state};
+      }
+      if(message.type==='TUBESHELF_FAVORITE_FEED') {
+        __feedCalls.push(message);
+        const hideShorts = state.settings.hideShorts;
+        await new Promise(resolve=>setTimeout(resolve,globalThis.__feedDelay || 50));
+        if(message.channelId==='/@design' && __failDesign) return {ok:false,error:'Fixture network failure'};
+        const prefix=message.channelId==='/@science'?'science':'designs';
+        if (hideShorts) return {ok:true,hideShorts:true,videos:message.channelId==='/@empty'?[]:[{id:prefix+'0001',title:'Normal upload',format:'video',published:'',publishedLabel:'1 day ago'}],fetchedAt:Date.now()};
+        const xml='<feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015">'+(message.channelId==='/@empty'?'':[1,3,2].map(n=>`<entry><yt:videoId>${prefix}${String(n).padStart(4,'0')}</yt:videoId><title>${prefix==='science'?'How the world works':'Designing with intention'} — Episode ${n}</title><published>2026-09-0${n}T12:00:00Z</published></entry>`).join(''))+'</feed>';
+        return {ok:true,xml,fetchedAt:Date.now()};
+      }
+      return {ok:true};
+    } }
+  };
+</script></head><body><ytd-guide-renderer><div id="sections"></div></ytd-guide-renderer><ytd-browse page-subtype="subscriptions"><div id="primary"><div id="native-feed">Native subscriptions</div></div></ytd-browse><script src="/extension/content/favorites.js"></script><script src="/extension/content/content.js"></script></body></html>

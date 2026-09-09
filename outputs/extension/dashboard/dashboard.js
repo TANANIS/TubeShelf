@@ -6,8 +6,13 @@
   const PROFILE_VERSION = 5;
   const COLORS = ["#7c5cff", "#ff6b8a", "#2dbd9b", "#f0a44b", "#4a91ff", "#bc6fe8"];
   let state = Core.defaultState();
+  const initialDashboardView = new URLSearchParams(location.search).get("view") === "settings" ? "settings" : "library";
+  let dashboardView = initialDashboardView;
   let selectedGroupId = "all";
   let managingMembers = false;
+  let memberDraft = new Map();
+  let memberSaving = false;
+  const draftMember = (group, id) => memberDraft.has(id) ? memberDraft.get(id) : group.channelIds.includes(id);
   let query = "";
   let autoController = null;
   let profileController = null;
@@ -108,10 +113,10 @@
     const groupDialog = $("group-dialog");
     if (groupDialog?.open && $("group-id").value && !state.groups.some((group) => group.id === $("group-id").value)) groupDialog.close();
     if ($("auto-dialog")?.open && !$("auto-results")?.hidden && !autoController) {
-      const unchecked = new Set([...document.querySelectorAll("[data-auto-group]:not(:checked)")].map((input) => input.dataset.autoGroup));
+      const choices = new Map([...document.querySelectorAll("[data-auto-channel]")].map((input) => [JSON.stringify([input.dataset.autoGroup, input.dataset.autoChannel]), input.checked]));
       autoSuggestions = Core.buildAutoGroupSuggestions(state);
       renderAutoResults();
-      document.querySelectorAll("[data-auto-group]").forEach((input) => { if (unchecked.has(input.dataset.autoGroup)) input.checked = false; });
+      document.querySelectorAll("[data-auto-channel]").forEach((input) => { const key = JSON.stringify([input.dataset.autoGroup, input.dataset.autoChannel]); if (choices.has(key)) input.checked = choices.get(key); });
     }
   }
 
@@ -178,11 +183,15 @@
       }
     }
     $("selected-title").textContent = managingMembers && selected ? `管理「${selected.name}」成員` : isUnfiled ? "未分類" : selected?.name || "全部頻道";
-    $("selected-subtitle").textContent = managingMembers && selected ? "查看全部頻道並用開關加入或移出；也可以一次處理目前搜尋結果" : isUnfiled ? "等待手動加入群組，或使用本機自動整理" : selected ? "只顯示這個群組的頻道；點擊頻道可調整分類" : "查看所有已從 YouTube 收集的頻道";
+    $("selected-subtitle").textContent = managingMembers && selected ? "勾選頻道後按儲存；取消不會修改群組。" : "點擊頻道可在 YouTube 開啟；使用詳細資料調整分類。";
     $("group-actions").hidden = !selected;
-    $("manage-members").textContent = managingMembers ? "完成管理" : "管理成員";
+    $("manage-members").hidden = managingMembers;
+    $("edit-selected-group").disabled = managingMembers;
+    document.querySelectorAll("[data-group], .nav-item, #new-group, #mini-add, #auto-organize").forEach((button) => { button.disabled = managingMembers; });
+    $("save-members").disabled = memberSaving || !memberDraft.size;
+    $("channel-list").classList.toggle("is-editing", managingMembers);
     $("member-manager").hidden = !managingMembers || !selected;
-    $("member-count").textContent = selected ? `${selected.channelIds.length} / ${Object.keys(state.channels).length}` : "0 / 0";
+    $("member-count").textContent = selected ? `${Object.keys(state.channels).filter((id) => draftMember(selected, id)).length} / ${Object.keys(state.channels).length}` : "0 / 0";
     $("search").placeholder = managingMembers ? "搜尋全部頻道" : "搜尋這個群組";
     if (!profileController) $("refresh-profiles").textContent = selected ? "更新此群組資料" : isUnfiled ? "更新未分類資料" : "更新全部頻道資料";
     const channels = Object.values(state.channels)
@@ -197,7 +206,7 @@
         return a.name.localeCompare(b.name, "zh-Hant");
       });
     if (managingMembers && selected) {
-      const visibleMemberCount = channels.filter((channel) => selected.channelIds.includes(channel.id)).length;
+      const visibleMemberCount = channels.filter((channel) => draftMember(selected, channel.id)).length;
       const visibleMissingCount = channels.length - visibleMemberCount;
       $("add-filtered").textContent = `加入目前結果（${visibleMissingCount}）`;
       $("remove-filtered").textContent = `移出目前結果（${visibleMemberCount}）`;
@@ -215,10 +224,8 @@
       const memberships = membershipsByChannel.get(channel.id) || [];
       const avatar = channel.avatar ? `<img src="${escapeHtml(channel.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />` : escapeHtml(channel.name.slice(0, 1).toUpperCase());
       const chips = memberships.length ? `${memberships.slice(0, 1).map((group) => `<span class="chip" style="color:${group.color};background:${group.color}17">${escapeHtml(group.name)}</span>`).join("")}${memberships.length > 1 ? `<span class="chip">+${memberships.length - 1}</span>` : ""}` : '<span class="unfiled">尚未分類</span>';
-      const control = selected
-        ? `<button class="member-toggle" data-channel="${escapeHtml(channel.id)}" role="switch" aria-label="${escapeHtml(channel.name)} 加入 ${escapeHtml(selected.name)}" aria-checked="${selected.channelIds.includes(channel.id)}"></button>`
-        : isUnfiled ? `<span class="card-status">待</span>` : `<a class="channel-open" href="${escapeHtml(channel.url)}" target="_blank" rel="noreferrer" aria-label="在 YouTube 開啟 ${escapeHtml(channel.name)}">↗</a>`;
-      return `<article class="channel-card ${selected?.channelIds.includes(channel.id) ? "is-member" : ""}" data-channel-row="${escapeHtml(channel.id)}" tabindex="0" aria-label="檢視頻道 ${escapeHtml(channel.name)}"><div class="channel-main"><span class="avatar">${avatar}</span><span class="channel-name">${escapeHtml(channel.name)}</span><span class="channel-url">${escapeHtml(channel.id)}</span></div><div class="chips">${chips}</div>${control}</article>`;
+      if (managingMembers && selected) return `<label class="member-row"><input type="checkbox" data-member="${escapeHtml(channel.id)}" ${draftMember(selected, channel.id) ? "checked" : ""} ${memberSaving ? "disabled" : ""}><span class="avatar">${avatar}</span><span class="member-copy"><strong>${escapeHtml(channel.name)}</strong><small>${escapeHtml(channel.id)}</small></span><span class="chips">${chips}</span></label>`;
+      return `<article class="channel-card" data-channel-row="${escapeHtml(channel.id)}" tabindex="0" role="link" aria-label="${escapeHtml(t("在 YouTube 開啟") + " " + channel.name)}"><div class="channel-main"><span class="avatar">${avatar}</span><span class="channel-name">${escapeHtml(channel.name)}</span><span class="channel-url">${escapeHtml(channel.id)}</span></div><div class="chips">${chips}</div><button class="channel-detail button ghost compact" data-detail="${escapeHtml(channel.id)}">詳細資料</button></article>`;
     }).join("");
     localize($("channel-list").closest(".channel-pane"));
     scheduleWorkspaceLayout();
@@ -503,7 +510,8 @@
   }
 
   function renderAutoResults() {
-    const suggestedCount = autoSuggestions.groups.reduce((sum, group) => sum + group.channelIds.length, 0);
+    $("auto-save-error").textContent = "";
+    const suggestedCount = new Set(autoSuggestions.groups.flatMap((group) => group.channelIds)).size;
     const stats = autoSuggestions.stats || { high: 0, medium: 0, low: 0, official: 0, personal: 0, dictionary: 0 };
     $("auto-result-count").textContent = suggestedCount;
     $("auto-uncertain-count").textContent = autoSuggestions.uncertain.length ? `${autoSuggestions.uncertain.length} 個頻道因資訊不足或分類衝突而保留待分類` : "所有待分類頻道都有分類建議";
@@ -511,14 +519,12 @@
     $("auto-suggestion-list").innerHTML = autoSuggestions.groups.length
       ? autoSuggestions.groups.map((group) => {
           const english = currentLanguage() === "en";
-          const sample = group.channels.slice(0, 4).map((channel) => channel.name).join(english ? ", " : "、");
-          const reasons = [...new Set(group.channels.flatMap((channel) => channel.reasons))].slice(0, 3).join(english ? ", " : "、");
           const high = group.channels.filter((channel) => channel.confidence === "high").length;
           const medium = group.channels.filter((channel) => channel.confidence === "medium").length;
-          const tags = [...new Set(group.channels.flatMap((channel) => channel.tags || []))].slice(0, 3).join(english ? ", " : "／");
           const low = group.channels.filter((channel) => channel.confidence === "low").length;
           const confidence = english ? `High ${high} · Medium ${medium} · Low ${low}` : `高 ${high}・中 ${medium}・低 ${low}`;
-          return `<label class="suggestion-card"><input type="checkbox" data-auto-group="${escapeHtml(group.groupId)}" checked><span class="suggestion-icon" style="color:${group.color};background:${group.color}1b">${Core.iconSvg(group.icon, "currentColor", 17)}</span><span class="suggestion-copy"><strong>${escapeHtml(group.name)} <span class="confidence">${confidence}</span></strong><small>${escapeHtml(sample)}${group.channels.length > 4 ? "…" : ""}${tags ? `${english ? "  Tags: " : "　標籤："}${escapeHtml(tags)}` : ""}${reasons ? `${english ? "  Based on: " : "　依據："}${escapeHtml(reasons)}` : ""}</small></span><span class="suggestion-count">${group.channelIds.length}</span></label>`;
+          const rows = group.channels.map((channel) => `<label class="suggestion-card"><input type="checkbox" data-auto-group="${escapeHtml(group.groupId)}" data-auto-channel="${escapeHtml(channel.id)}" data-confidence="${channel.confidence}" ${channel.confidence === "high" ? "checked" : ""}><span class="suggestion-copy"><strong><span translate="no">${escapeHtml(channel.name)}</span> <span class="confidence">${english ? { high: "High", medium: "Medium", low: "Low" }[channel.confidence] : { high: "高", medium: "中", low: "低" }[channel.confidence]}</span></strong><small>${escapeHtml(channel.reasons.join(english ? " · " : "・"))}</small></span></label>`).join("");
+          return `<section class="suggestion-group"><h3><span style="color:${group.color}">${Core.iconSvg(group.icon, "currentColor", 17)}</span> <span translate="no">${escapeHtml(group.name)}</span> <span class="confidence">${confidence}</span></h3>${rows}</section>`;
         }).join("")
       : `<div class="empty-state"><strong>目前沒有足夠明確的分類建議</strong><p>既有群組不會受到影響；資訊不足的頻道會繼續留在待分類。</p></div>`;
     $("auto-apply").disabled = !autoSuggestions.groups.length;
@@ -585,6 +591,7 @@
   }
 
   function setDashboardView(view) {
+    dashboardView = view === "settings" ? "settings" : "library";
     const settings = view === "settings";
     document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
     $("library-view").hidden = settings;
@@ -631,7 +638,7 @@
     const step = ONBOARDING_STEPS[onboardingStep];
     clearOnboardingTarget();
     if (!step) { host.hidden = true; return; }
-    setDashboardView(onboardingStep === 4 ? "settings" : "library");
+    setDashboardView(onboardingStep === 0 ? initialDashboardView : onboardingStep === 4 ? "settings" : "library");
     host.hidden = false;
     $("onboarding-icon").textContent = step.icon;
     $("onboarding-title").textContent = step.title;
@@ -639,6 +646,7 @@
     $("onboarding-progress").textContent = `${onboardingStep + 1} / ${ONBOARDING_STEPS.length}`;
     $("onboarding-dots").innerHTML = ONBOARDING_STEPS.map((_item, index) => `<span class="${index === onboardingStep ? "active" : ""}"></span>`).join("");
     $("onboarding-back").hidden = onboardingStep === 0;
+    host.querySelector('[data-open-templates]').hidden = onboardingStep !== 0 && onboardingStep !== 4;
     const next = $("onboarding-next");
     next.textContent = step.action;
     next.disabled = onboardingStep === 1 && onboardingWaitingForScan;
@@ -675,14 +683,14 @@
     renderOnboarding();
   }
 
-  async function finishOnboarding(message) {
+  async function finishOnboarding(message, returnView = "library") {
     onboardingStep = -1;
     onboardingWaitingForScan = false;
     onboardingWaitingForAuto = false;
     clearOnboardingTarget();
     $("onboarding").hidden = true;
     await commit({ type: "set-onboarding-complete", payload: { complete: true } });
-    setDashboardView("library");
+    setDashboardView(returnView);
     toast(message);
   }
 
@@ -721,20 +729,15 @@
   }
 
   document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => {
-    setDashboardView(button.dataset.view);
+    if (!managingMembers) setDashboardView(button.dataset.view);
   }));
-  $("group-list").addEventListener("click", (event) => { const id = event.target.closest("[data-group]")?.dataset.group; if (id) { selectedGroupId = id; managingMembers = false; query = ""; $("search").value = ""; render(); } });
+  $("group-list").addEventListener("click", (event) => { const id = event.target.closest("[data-group]")?.dataset.group; if (id && !managingMembers && !memberSaving) { selectedGroupId = id; managingMembers = false; query = ""; $("search").value = ""; render(); } });
   $("channel-list").addEventListener("click", async (event) => {
-    const id = event.target.closest("[data-channel]")?.dataset.channel;
-    const group = state.groups.find((item) => item.id === selectedGroupId);
-    if (id && group) {
-      const enabled = !group.channelIds.includes(id);
-      await commit({ type: "toggle-membership", payload: { channelId: id, groupId: group.id, enabled } }, enabled ? `已加入「${group.name}」，並記住這次修正` : `已移出「${group.name}」`);
-      return;
-    }
+    const detail = event.target.closest("[data-detail]")?.dataset.detail;
+    if (detail) { openChannelDetail(detail); return; }
     if (event.target.closest("a, button, input, select")) return;
     const rowId = event.target.closest("[data-channel-row]")?.dataset.channelRow;
-    if (rowId) openChannelDetail(rowId);
+    if (rowId) api.open(state.channels[rowId].url);
   });
   $("channel-list").addEventListener("keydown", (event) => {
     if (!["Enter", " "].includes(event.key)) return;
@@ -743,7 +746,7 @@
     const rowId = row?.dataset.channelRow;
     if (!rowId) return;
     event.preventDefault();
-    openChannelDetail(rowId);
+    api.open(state.channels[rowId].url);
   });
   $("search").addEventListener("input", (event) => { query = event.target.value.trim().toLowerCase(); renderChannels(); });
   $("refresh-profiles").addEventListener("click", refreshProfiles);
@@ -751,21 +754,36 @@
     const group = state.groups.find((item) => item.id === selectedGroupId);
     if (group) openDialog(group);
   });
-  $("manage-members").addEventListener("click", () => { managingMembers = !managingMembers; renderChannels(); });
-  async function updateFilteredMembership(add) {
-    const group = state.groups.find((item) => item.id === selectedGroupId);
-    if (!group || !managingMembers) return;
-    const matchingIds = Object.values(state.channels)
-      .filter((channel) => !query || channel.name.toLowerCase().includes(query) || channel.id.includes(query))
-      .map((channel) => channel.id);
-    const existing = new Set(group.channelIds);
-    const changedIds = matchingIds.filter((id) => add ? !existing.has(id) : existing.has(id));
-    if (!changedIds.length) { toast(add ? "目前結果都已在群組中" : "目前結果都不在群組中"); return; }
-    if ((!add || changedIds.length >= 20) && !confirm(t(`要把 ${changedIds.length} 個頻道${add ? "加入" : "移出"}「${group.name}」嗎？`))) return;
-    await commit({ type: "bulk-membership", payload: { channelIds: changedIds, groupId: group.id, enabled: add } }, add ? `已加入 ${changedIds.length} 個頻道` : `已移出 ${changedIds.length} 個頻道`);
+  $("manage-members").addEventListener("click", () => { managingMembers = true; memberDraft.clear(); query = ""; $("search").value = ""; renderChannels(); });
+  $("cancel-members").addEventListener("click", () => { if (memberSaving) return; managingMembers = false; memberDraft.clear(); query = ""; $("search").value = ""; renderChannels(); });
+  $("channel-list").addEventListener("change", (event) => {
+    const id = event.target.dataset.member;
+    if (!id || memberSaving) return;
+    memberDraft.set(id, event.target.checked);
+    renderChannels();
+    [...document.querySelectorAll("[data-member]")].find((input) => input.dataset.member === id)?.focus();
+  });
+  $("save-members").addEventListener("click", async () => {
+    if (memberSaving) return;
+    memberSaving = true;
+    renderChannels();
+    try {
+      await commit({ type: "edit-memberships", payload: { groupId: selectedGroupId, changes: [...memberDraft].map(([channelId, enabled]) => ({ channelId, enabled })) } }, "已儲存變更");
+      memberDraft.clear();
+      managingMembers = false;
+      query = "";
+      $("search").value = "";
+    } catch (_) { toast("儲存失敗，請重試。"); }
+    finally { memberSaving = false; renderChannels(); }
+  });
+  function updateFilteredMembership(add) {
+    if (!managingMembers || memberSaving) return;
+    Object.values(state.channels).filter((channel) => !query || channel.name.toLowerCase().includes(query) || channel.id.includes(query)).forEach((channel) => memberDraft.set(channel.id, add));
+    renderChannels();
   }
   $("add-filtered").addEventListener("click", () => updateFilteredMembership(true));
   $("remove-filtered").addEventListener("click", () => updateFilteredMembership(false));
+  window.addEventListener("beforeunload", (event) => { if (managingMembers && memberDraft.size) { event.preventDefault(); event.returnValue = ""; } });
   $("detail-close").addEventListener("click", () => $("channel-dialog").close());
   $("detail-refresh").addEventListener("click", async () => {
     const channelId = $("detail-open").dataset.channelId;
@@ -802,7 +820,24 @@
     openChannelDetail(channelId);
   });
   [$("new-group"), $("mini-add")].forEach((button) => button.addEventListener("click", () => openDialog()));
-  document.querySelectorAll("[data-dialog-close]").forEach((button) => button.addEventListener("click", () => $("group-dialog").close()));
+  document.querySelectorAll("[data-dialog-close]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
+  document.querySelectorAll("[data-open-templates]").forEach((button) => button.addEventListener("click", () => {
+    $("template-options").innerHTML = Core.AUTO_GROUPS.map((group) => `<label><input type="checkbox" value="${escapeHtml(group.id)}"><span>${escapeHtml(t(group.name))}</span></label>`).join("");
+    $("template-status").textContent = "";
+    $("template-dialog").showModal();
+    localize($("template-dialog"));
+  }));
+  $("template-apply").addEventListener("click", async () => {
+    const groupIds = [...$("template-options").querySelectorAll("input:checked")].map((input) => input.value);
+    if (!groupIds.length) { $("template-status").textContent = t("請先勾選群組"); return; }
+    $("template-apply").disabled = true;
+    try {
+      await commit({ type: "add-group-templates", payload: { groupIds } });
+      $("template-dialog").close();
+      toast("群組已新增");
+    } catch (_) { $("template-status").textContent = t("儲存失敗，請重試。"); }
+    finally { $("template-apply").disabled = false; }
+  });
   $("group-list").addEventListener("dblclick", (event) => { const id = event.target.closest("[data-group]")?.dataset.group; const group = state.groups.find((item) => item.id === id); if (group) openDialog(group); });
   $("group-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -857,13 +892,17 @@
     renderOnboarding();
   });
   $("auto-apply").addEventListener("click", async () => {
-    const selected = new Set([...document.querySelectorAll("[data-auto-group]:checked")].map((input) => input.dataset.autoGroup));
-    const groups = autoSuggestions.groups.filter((group) => selected.has(group.groupId));
+    const selected = new Set([...document.querySelectorAll("[data-auto-channel]:checked")].map((input) => JSON.stringify([input.dataset.autoGroup, input.dataset.autoChannel])));
+    const groups = autoSuggestions.groups.map((group) => ({ ...group, channelIds: group.channelIds.filter((id) => selected.has(JSON.stringify([group.groupId, id]))) })).filter((group) => group.channelIds.length);
     if (!groups.length) { toast("請至少選擇一個分類建議"); return; }
     const beforeCount = Core.unfiledChannelIds(state).length;
-    await commit({ type: "apply-auto-suggestions", payload: { groups } });
-    toast(`已整理 ${Math.max(0, beforeCount - Core.unfiledChannelIds(state).length)} 個頻道`);
-    $("auto-dialog").close();
+    $("auto-apply").disabled = true;
+    try {
+      await commit({ type: "apply-auto-suggestions", payload: { groups } });
+      toast(`已整理 ${Math.max(0, beforeCount - Core.unfiledChannelIds(state).length)} 個頻道`);
+      $("auto-dialog").close();
+    } catch (_) { $("auto-save-error").textContent = t("儲存失敗，請重試。"); }
+    finally { $("auto-apply").disabled = !autoSuggestions.groups.length; }
   });
   document.querySelectorAll("[data-setting]").forEach((input) => input.addEventListener("change", async () => {
     await commit({ type: "set-setting", payload: { setting: input.dataset.setting, enabled: input.checked } }, input.dataset.setting === "hideSecondary" && input.checked ? "已隱藏影片右側欄，並關閉自動播放" : "設定已儲存");
@@ -920,7 +959,7 @@
     onboardingStep -= 1;
     renderOnboarding();
   });
-  $("onboarding-skip").addEventListener("click", () => finishOnboarding("已跳過新手教學，可直接開始使用"));
+  $("onboarding-skip").addEventListener("click", () => finishOnboarding("已跳過新手教學，可直接開始使用", dashboardView));
 
   api.onChange((changes, area) => {
     if (area !== "local") return;
@@ -969,6 +1008,7 @@
     acceptState(savedState, true);
     youtubeApiKey = savedApiKey;
     render();
+    setDashboardView(initialDashboardView);
     if (!state.settings.onboardingComplete) setTimeout(startOnboarding, 180);
   })();
 })();
