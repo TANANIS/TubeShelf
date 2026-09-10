@@ -25,22 +25,22 @@
 
 **[Install TubeShelf from the Chrome Web Store](https://chromewebstore.google.com/detail/agnnbehkdkdkflknblhkmgciaekngole?utm_source=item-share-cb)**
 
-**Manual package: [Download TubeShelf 1.18.7](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.18.7/outputs/TubeShelf-1.18.7.zip)**
+**Manual package: [Download TubeShelf 1.19.2](https://github.com/TANANIS/TubeShelf/raw/refs/tags/v1.19.2/outputs/TubeShelf-1.19.2.zip)**
 
-### What's new in 1.18.7
+### What's new in 1.19.2
 
-- Faster subscription filtering through a per-revision membership index, with bounded update scheduling and fewer redundant page scans.
-- A wider popup with more room for groups and a compact support footer.
-- A single power button to pause or resume TubeShelf on YouTube. Groups and preferences are preserved, and the saved power state survives reloads.
-- Support and feedback links in the popup, dashboard and YouTube panel. The subscription toolbar stays focused on filtering.
+- Auto-organize now classifies all unfiled channels immediately, without a review or confirmation step. Each channel gets its best matching group; channels without enough information go into Other. Existing classifications are preserved and every assignment remains editable.
+- A Favorites view on YouTube with a searchable picker, up to six newest public videos per channel, publication dates, refresh and per-channel retry. Favorites persist separately from groups.
+- Dashboard cards open channels on YouTube, with a separate Details button; Manage members uses searchable checkbox rows; bulk edits stage and commit as one delta.
+- Improved auto-grouping classification: handles script variants, strips contact noise, separates game development, science, stories, camping/survival and VTuber.
+- Optional starter groups from onboarding and Preferences.
+- A single global power button to pause or resume TubeShelf on YouTube; groups and preferences are preserved.
 
-The local automated checks pass: 46 unit/static/background tests plus UI, performance and power-toggle browser harnesses. Signed-in YouTube verification remains pending. See [performance findings](PERFORMANCE.md) for the synthetic benchmark and its limits.
+The local automated checks pass: 64 unit/static/background tests plus UI, favorites, classification, onboarding, performance and power-toggle browser harnesses. See [performance findings](PERFORMANCE.md) for the synthetic benchmark and its limits.
 
-<img src="work/popup-1.18.7-on.png" alt="TubeShelf 1.18.7 popup with a power button and expanded group list, using synthetic demo data" width="460">
+<img src="work/popup-1.18.7-on.png" alt="TubeShelf popup with a power button and expanded group list, using synthetic demo data" width="460">
 
-Package SHA-256: `b012f4612c4dfbb29efb0acb1f21920c5ee77ae3c82fabd69df2bfc1d3e9a08e`.
-
-> **1.19.2 is in testing.** Auto-organize now classifies all unfiled channels immediately, without a review or confirmation step. Each channel gets its best matching group; channels without enough information go into Other. Existing classifications are preserved and every assignment remains editable. Automated checks pass; installed-extension verification is incomplete, so the stable download remains 1.18.7.
+Package SHA-256: `eb414f8d4871ef435178e83e2b8937bdb37a6e812ec4ffec3a9904fc2522a385`.
 
 ### Chrome
 
@@ -48,7 +48,7 @@ Install the extension directly from the [Chrome Web Store](https://chromewebstor
 
 For manual installation:
 
-1. Download `TubeShelf-1.18.7.zip` from the release link above.
+1. Download `TubeShelf-1.19.2.zip` from the release link above.
 2. Extract the ZIP file.
 3. Open `chrome://extensions/`.
 4. Enable **Developer mode**.
