@@ -23,6 +23,9 @@
     "保留待分類": "Leave unclassified", "採用": "Use suggestion", "加入群組": "Assign to", "套用選擇": "Apply selections",
     "查看原因": "Why this suggestion", "同時加入其他群組": "Also add to other groups",
     "先為每個待分類頻道選擇群組，或保留待分類；按下「套用選擇」才會儲存。": "Choose a group for each unclassified channel, or leave it unclassified. Changes are saved only after you click Apply selections.",
+    "自動分類會直接整理所有待分類頻道；資訊不足的放入「其他」，之後都能編輯。": "Automatically sort all unclassified channels. Channels without enough information go into Other. You can edit any assignment later.",
+    "自動分類失敗，請重試。": "Automatic classification failed. Please retry.",
+    "正在儲存分類…": "Saving classifications…", "重試自動分類": "Retry automatic classification",
     "從已收集頻道中挑選": "Choose from your collected channels", "儲存變更": "Save changes", "取消編輯": "Cancel editing",
     "勾選頻道後按儲存；取消不會修改群組。": "Select channels, then save. Cancel leaves the group unchanged.",
     "點擊頻道可查看詳細資料與分類。": "Open a channel to view its details and groups.",
@@ -1032,12 +1035,10 @@
     const learnedProfiles = buildLearnedProfiles(current);
     const suggestions = new Map();
     const uncertain = [];
-    const channels = [];
     const stats = { high: 0, medium: 0, low: 0, official: 0, personal: 0, dictionary: 0 };
     for (const channel of Object.values(current.channels)) {
       if (filed.has(channel.id)) continue;
       const result = classifyChannel(channel, current, learnedProfiles);
-      channels.push({ id: channel.id, name: channel.name, candidates: result ? [result, ...result.alternatives] : [] });
       if (!result) { uncertain.push(channel.id); continue; }
       stats[result.confidence] += 1;
       result.sources.forEach((source) => { if (source in stats) stats[source] += 1; });
@@ -1048,7 +1049,7 @@
         target.channels.push({ id: channel.id, name: channel.name, reasons: candidate.reasons, confidence: candidate.confidence, score: candidate.score, margin: candidate.margin, tags: candidate.tags, sources: candidate.sources });
       }
     }
-    return { groups: [...suggestions.values()], channels, uncertain, stats, learnedProfileCount: learnedProfiles.length };
+    return { groups: [...suggestions.values()], uncertain, stats, learnedProfileCount: learnedProfiles.length };
   }
 
   function recordManualMembership(state, channelId, groupId, enabled) {
@@ -1204,6 +1205,20 @@
       const stillUnfiled = new Set(unfiledChannelIds(current));
       const suggestions = (Array.isArray(payload.groups) ? payload.groups : []).map((group) => ({ ...group, channelIds: (group.channelIds || []).filter((id) => stillUnfiled.has(id)) }));
       return applyAutoGroupSuggestions(current, suggestions);
+    }
+    if (type === "auto-classify") {
+      const requested = new Set((Array.isArray(payload.channelIds) ? payload.channelIds : []).map((id) => resolveChannelRecordId(current, id)).filter(Boolean));
+      const learnedProfiles = buildLearnedProfiles(current);
+      const fallback = current.groups.find((group) => ["其他", "其它", "other", "others"].includes(group.name.trim().toLowerCase()));
+      const other = fallback ? { ...fallback, groupId: fallback.id } : { groupId: createId("other", current.groups.map((group) => group.id)), name: current.settings.language === "en" ? "Other" : "其他", icon: "star", color: "#8b849c" };
+      const assignments = new Map();
+      for (const id of unfiledChannelIds(current)) {
+        if (!requested.has(id)) continue;
+        const destination = classifyChannel(current.channels[id], current, learnedProfiles) || other;
+        if (!assignments.has(destination.groupId)) assignments.set(destination.groupId, { ...destination, channelIds: [] });
+        assignments.get(destination.groupId).channelIds.push(id);
+      }
+      return applyAutoGroupSuggestions(current, [...assignments.values()]);
     }
     if (type === "patch-channels") {
       const next = current;

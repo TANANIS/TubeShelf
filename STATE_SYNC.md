@@ -21,6 +21,8 @@ Frontends send a `TUBESHELF_MUTATE` runtime message containing one semantic oper
 - `merge-groups`
 - `delete-group`
 - `apply-auto-suggestions`
+- `auto-classify`
+- `add-group-templates`
 - `patch-channels`
 - `reconcile-subscription-scan`
 - `replace-state`
@@ -53,11 +55,13 @@ Favorites use `/feed/subscriptions#tubeshelf-view=favorites` and mount in that p
 
 When `settings.hideShorts` is true, Favorites instead reads the selected channel Videos tab from public `ytInitialData`. Only recognized normal video cards are accepted; Shorts links/reel endpoints, shelves and playlists are excluded. Missing or unrecognized data produces a retryable error, never an RSS fallback. Cache and in-flight keys include the Shorts mode. A live mode change clears rendered video data and advances the request generation, so stale RSS replies cannot restore Shorts. Same-mode retry failures may retain previously verified normal videos.
 
-## Classification review and starter groups
+## Direct classification and starter groups
 
 Classification folds common Traditional/Simplified variants in derived matching text only, removes contact/URL noise, matches English word boundaries, caps correlated phrase scores per field and deduplicates repeated titles and official topic groups. Specific subjects and explicit group-name aliases reuse existing IDs, names and memberships. Personal vocabulary still derives only from stored manual labels; model suggestions do not train themselves.
 
-The review UI shows each unfiled channel once, including channels without a suggestion. `dashboard/auto-review.js` keeps a primary destination and optional extra destinations keyed by channel ID. Only high-confidence primary suggestions are selected initially; other channels start with Leave unclassified. Search filters the rendered rows, while selections across all rows remain in memory. Accepted revisions recompute suggestions while retaining choices for surviving channels and destinations. Selecting Leave unclassified clears that channel's extra destinations. The footer counts distinct selected channels and new groups. `apply-auto-suggestions` revalidates against the current unfiled set before applying all selected destinations, preserving concurrent manual filing. Failed saves leave choices available for retry.
+The Auto-organize button starts metadata enrichment immediately, then sends `auto-classify` with the original target `channelIds`. There is no review or confirmation stage. In the background mutation queue, IDs resolve through current aliases and only currently unfiled requested channels are classified. The strongest usable result becomes the sole initial destination, including low-confidence or tied results; no usable result goes into the existing Other/其他 group or a newly created localized fallback. Newly arriving channels outside the run are left untouched. Current manual classifications, deleted records and manual learning labels are preserved. Repeating the operation is idempotent.
+
+The progress dialog closes after a successful commit. Failed metadata reads use available saved metadata; failed saves show a retry control. Cancellation during enrichment prevents the classification operation, including when cancellation arrives during the preceding metadata commit. Once the atomic classification commit is sent, close/cancel controls are disabled until it finishes. Subsequent corrections use the existing membership editor. The older `apply-auto-suggestions` operation remains compatible but is no longer used by this dashboard flow.
 
 `add-group-templates` accepts known catalog `groupIds` and only adds missing empty groups. It resolves existing canonical IDs and explicit name aliases, ignores unknown/duplicate IDs and is idempotent. The optional picker is available in Preferences and onboarding; existing groups, manual labels, favorites and channel records are preserved. No schema reset or automatic group replacement occurs.
 

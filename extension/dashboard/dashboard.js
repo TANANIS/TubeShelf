@@ -16,7 +16,7 @@
   let query = "";
   let autoController = null;
   let profileController = null;
-  let autoSuggestions = { groups: [], uncertain: [] };
+  let autoCommitting = false;
   let workspaceLayoutFrame = 0;
   let onboardingStep = -1;
   let onboardingWaitingForScan = false;
@@ -63,7 +63,6 @@
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const currentLanguage = () => Core.languageCode(state.settings?.language);
   const t = (value) => Core.translateUiText(value, currentLanguage());
-  const autoReview = globalThis.createTubeShelfAutoReview({ getState: () => state, getSuggestions: () => autoSuggestions, translate: t, escape: escapeHtml });
   function localize(root = document) {
     document.documentElement.lang = currentLanguage() === "en" ? "en" : "zh-Hant";
     document.title = Core.translateUiText("TubeShelf 管理中心", currentLanguage());
@@ -113,10 +112,6 @@
     }
     const groupDialog = $("group-dialog");
     if (groupDialog?.open && $("group-id").value && !state.groups.some((group) => group.id === $("group-id").value)) groupDialog.close();
-    if ($("auto-dialog")?.open && !$("auto-results")?.hidden && !autoController) {
-      autoSuggestions = Core.buildAutoGroupSuggestions(state);
-      renderAutoResults();
-    }
   }
 
   function renderApiStatus() {
@@ -491,15 +486,6 @@
     }
   }
 
-  function showAutoStep(name) {
-    ["intro", "progress", "results"].forEach((step) => { $(`auto-${step}`).hidden = step !== name; });
-    $("auto-start").hidden = name !== "intro";
-    $("auto-apply").hidden = name !== "results";
-    $("auto-review-status").hidden = name !== "results";
-    $("auto-cancel").textContent = name === "results" ? "關閉" : "取消";
-    localize($("auto-dialog"));
-  }
-
   function updateAutoProgress(done, total, channelName) {
     const percent = total ? Math.round((done / total) * 100) : 100;
     $("auto-percent").textContent = `${percent}%`;
@@ -509,22 +495,17 @@
     localize($("auto-progress"));
   }
 
-  function renderAutoResults() {
-    $("auto-save-error").textContent = "";
-    const suggestedCount = new Set(autoSuggestions.groups.flatMap((group) => group.channelIds)).size;
-    $("auto-result-count").textContent = suggestedCount;
-    $("auto-uncertain-count").textContent = autoSuggestions.uncertain.length ? `${autoSuggestions.uncertain.length} 個頻道因資訊不足或分類衝突而保留待分類` : "所有待分類頻道都有分類建議";
-    autoReview.render();
-    showAutoStep("results");
-  }
-
   async function startAutoOrganize() {
-    autoReview.reset();
+    if (autoController) return;
     const unfiledIds = new Set(Core.unfiledChannelIds(state));
     const unfiled = Object.values(state.channels).filter((channel) => unfiledIds.has(channel.id)).map((channel) => structuredClone(channel));
-    if (!unfiled.length) { toast(Object.keys(state.channels).length ? "目前沒有尚未分類的頻道" : "請先更新訂閱內容"); return; }
+    if (!unfiled.length) { closeAutoDialog(); toast(Object.keys(state.channels).length ? "目前沒有尚未分類的頻道" : "請先更新訂閱內容"); return; }
     autoController = new AbortController();
-    showAutoStep("progress");
+    const controller = autoController;
+    $("auto-organize").disabled = true;
+    $("auto-progress").hidden = false;
+    $("auto-retry").hidden = true;
+    $("auto-save-error").textContent = "";
     const staleBefore = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const targets = unfiled.filter((channel) => channel.profileVersion !== PROFILE_VERSION || !channel.profiledAt || channel.profiledAt < staleBefore);
     let cursor = 0;
@@ -533,16 +514,16 @@
     updateAutoProgress(0, targets.length, "");
     try {
       const workers = Array.from({ length: Math.min(3, targets.length) }, async () => {
-        while (cursor < targets.length && !autoController.signal.aborted) {
+        while (cursor < targets.length && !controller.signal.aborted) {
           const channel = targets[cursor++];
-          try { Object.assign(channel, await fetchChannelProfile(channel, autoController.signal)); }
+          try { Object.assign(channel, await fetchChannelProfile(channel, controller.signal)); }
           catch (error) { if (error.name !== "AbortError") failed += 1; }
           done += 1;
           updateAutoProgress(done, targets.length, channel.name);
         }
       });
       await Promise.all(workers);
-      if (autoController.signal.aborted) {
+      if (controller.signal.aborted) {
         await commit({ type: "patch-channels", payload: { updates: unfiled.map((channel) => ({ id: channel.id, patch: channel })) } });
         return;
       }
@@ -550,7 +531,7 @@
       const officialTargets = unfiled.filter((channel) => !channel.officialProfiledAt || channel.officialProfiledAt < staleBefore);
       if (youtubeApiKey && officialTargets.length) {
         try {
-          await enrichOfficialMetadata(officialTargets, autoController.signal, (current, total, label) => {
+          await enrichOfficialMetadata(officialTargets, controller.signal, (current, total, label) => {
             const percent = total ? Math.round((current / total) * 100) : 100;
             $("auto-percent").textContent = `${percent}%`;
             $("auto-progress-bar").style.width = `${percent}%`;
@@ -563,17 +544,36 @@
         }
       }
       await commit({ type: "patch-channels", payload: { updates: unfiled.map((channel) => ({ id: channel.id, patch: channel })) } });
+      if (controller.signal.aborted) return;
       updateAutoProgress(targets.length, targets.length, "");
-      autoSuggestions = Core.buildAutoGroupSuggestions(state);
-      renderAutoResults();
+      autoCommitting = true;
+      $("auto-cancel").disabled = true;
+      $("auto-close").disabled = true;
+      $("auto-progress-title").textContent = t("正在儲存分類…");
+      const beforeIds = new Set(Core.unfiledChannelIds(state));
+      await commit({ type: "auto-classify", payload: { channelIds: unfiled.map((channel) => channel.id) } });
+      const afterIds = new Set(Core.unfiledChannelIds(state));
+      toast(`已整理 ${[...beforeIds].filter((id) => !afterIds.has(id)).length} 個頻道`);
+      $("auto-dialog").close();
       if (officialError) toast(`已用本機資料完成；YouTube 官方分類失敗：${officialError}`);
       else if (failed) toast(`${failed} 個頻道暫時無法讀取，已用現有資料分析`);
+    } catch (_) {
+      if (!controller.signal.aborted) {
+        $("auto-save-error").textContent = t("自動分類失敗，請重試。");
+        $("auto-progress").hidden = true;
+        $("auto-retry").hidden = false;
+      }
     } finally {
       autoController = null;
+      autoCommitting = false;
+      $("auto-organize").disabled = false;
+      $("auto-cancel").disabled = false;
+      $("auto-close").disabled = false;
     }
   }
 
   function closeAutoDialog() {
+    if (autoCommitting) return;
     autoController?.abort();
     $("auto-dialog").close();
   }
@@ -611,7 +611,7 @@
   const ONBOARDING_STEPS = [
     { icon: "✦", title: "歡迎使用 TubeShelf", copy: "這份教學會陪你完成第一次更新、第一次本機自動整理，以及日後手動管理群組的方法。所有資料只留在這台裝置。", action: "開始教學" },
     { icon: "↻", title: "先建立你的訂閱書架", copy: "按下「更新訂閱內容」後，TubeShelf 會開啟 YouTube 的所有訂閱頁並自動載入完整清單。完成後這個頁面會立即顯示頻道。", target: "#update-subscriptions", action: "更新訂閱內容" },
-    { icon: "✦", title: "第一次自動整理", copy: "先為每個待分類頻道選擇群組，或保留待分類；按下「套用選擇」才會儲存。", target: "#auto-organize", action: "開啟自動整理" },
+    { icon: "✦", title: "第一次自動整理", copy: "自動分類會直接整理所有待分類頻道；資訊不足的放入「其他」，之後都能編輯。", target: "#auto-organize", action: "開啟自動整理" },
     { icon: "▦", title: "檢查並手動調整", copy: "選擇左側群組即可查看真正成員。點頻道卡片可看詳細資料；使用「管理成員」可批次加入或移出，也能用「新增群組」建立自己的分類。", target: ".group-pane", action: "下一步" },
     { icon: "⌁", title: "依喜好整理 YouTube", copy: "偏好設定可以封鎖首頁、關閉 Shorts、隱藏影片右欄、關閉自動播放與隱藏已觀看影片；下方也能匯出或匯入備份。", target: ".settings-grid", action: "下一步" },
     { icon: "✓", title: "準備完成", copy: "回到 YouTube 訂閱內容後，可從左側 TubeShelf 群組或頁面上方快速切換。齒輪會直接開啟完整面板。", action: "完成" }
@@ -683,14 +683,14 @@
   }
 
   function openAutoOrganizer() {
+    if (autoController) return;
     if (onboardingStep === 2) {
       onboardingWaitingForAuto = true;
       clearOnboardingTarget();
       $("onboarding").hidden = true;
     }
-    autoSuggestions = { groups: [], uncertain: [] };
-    showAutoStep("intro");
     $("auto-dialog").showModal();
+    startAutoOrganize();
   }
 
   async function advanceOnboarding() {
@@ -869,27 +869,15 @@
     }
   });
   $("auto-organize").addEventListener("click", openAutoOrganizer);
-  $("auto-start").addEventListener("click", startAutoOrganize);
+  $("auto-retry").addEventListener("click", startAutoOrganize);
   $("auto-cancel").addEventListener("click", closeAutoDialog);
   $("auto-close").addEventListener("click", closeAutoDialog);
-  $("auto-dialog").addEventListener("cancel", () => autoController?.abort());
+  $("auto-dialog").addEventListener("cancel", (event) => { if (autoCommitting) event.preventDefault(); else autoController?.abort(); });
   $("auto-dialog").addEventListener("close", () => {
     if (!onboardingWaitingForAuto) return;
     onboardingWaitingForAuto = false;
     onboardingStep = 3;
     renderOnboarding();
-  });
-  $("auto-apply").addEventListener("click", async () => {
-    const groups = autoReview.selectedGroups();
-    if (!groups.length) { toast("請至少選擇一個分類建議"); return; }
-    const beforeCount = Core.unfiledChannelIds(state).length;
-    $("auto-apply").disabled = true;
-    try {
-      await commit({ type: "apply-auto-suggestions", payload: { groups } });
-      toast(`已整理 ${Math.max(0, beforeCount - Core.unfiledChannelIds(state).length)} 個頻道`);
-      $("auto-dialog").close();
-    } catch (_) { $("auto-save-error").textContent = t("儲存失敗，請重試。"); }
-    finally { $("auto-apply").disabled = !autoReview.selectedGroups().length; }
   });
   document.querySelectorAll("[data-setting]").forEach((input) => input.addEventListener("change", async () => {
     await commit({ type: "set-setting", payload: { setting: input.dataset.setting, enabled: input.checked } }, input.dataset.setting === "hideSecondary" && input.checked ? "已隱藏影片右側欄，並關閉自動播放" : "設定已儲存");

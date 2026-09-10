@@ -56,6 +56,17 @@ function loadBackground(initialState, fetchImpl) {
   };
 }
 
+test("direct classification uses the queued current state and preserves an earlier manual edit", async () => {
+  const background=loadBackground({channels:{'/@one':{name:'One',description:'Music'},'/@two':{name:'Unknown'}},groups:[{id:'mine',name:'Mine',channelIds:[]}]});
+  const manual=background.send({type:'TUBESHELF_MUTATE',operation:{type:'toggle-membership',payload:{groupId:'mine',channelId:'/@one',enabled:true}}});
+  const auto=background.send({type:'TUBESHELF_MUTATE',operation:{type:'auto-classify',payload:{channelIds:['/@one','/@two']}}});
+  const results=await Promise.all([manual,auto]);
+  assert.ok(results.every(result=>result.ok));
+  assert.deepEqual(background.store.tubeShelfState.groups.find(group=>group.id==='mine').channelIds,['/@one']);
+  assert.deepEqual(Core.unfiledChannelIds(background.store.tubeShelfState),[]);
+  assert.deepEqual(background.store.tubeShelfState.manualLabels,{'/@one':['mine']});
+});
+
 test("background serializes concurrent state mutations without losing either intent", async () => {
   const initial = Core.defaultState();
   initial.channels = {

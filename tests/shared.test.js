@@ -2,6 +2,25 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Core = require("../extension/shared.js");
 
+test("direct classification files every requested channel once and preserves manual choices", () => {
+  const state = Core.normalizeState({settings:{language:'en'}, channels:{'/@weak':{name:'Creator',description:'Music'},'/@mixed':{name:'Mixed',description:'Music piano cooking recipe'},'/@unknown':{name:'Unknown'},'/@filed':{name:'Filed',description:'Cooking'},'/@new':{name:'New'}}, groups:[{id:'custom',name:'Personal',channelIds:['/@filed']},{id:'misc',name:'其他',channelIds:[]}],manualLabels:{'/@filed':['custom']}});
+  const operation = {type:'auto-classify',payload:{channelIds:['/@weak','/@mixed','/@unknown','/@filed','/@gone']}};
+  const next = Core.applyStateOperation(state,operation);
+  for (const id of ['/@weak','/@mixed','/@unknown']) assert.equal(next.groups.filter(group=>group.channelIds.includes(id)).length,1);
+  assert.deepEqual(next.groups.find(group=>group.id==='misc').channelIds,['/@unknown']);
+  assert.deepEqual(next.groups.find(group=>group.id==='custom').channelIds,['/@filed']);
+  assert.deepEqual(next.manualLabels,state.manualLabels);
+  assert.deepEqual(Core.unfiledChannelIds(next),['/@new']);
+  assert.deepEqual(Core.applyStateOperation(next,operation),next);
+});
+
+test("direct classification resolves aliases and creates a localized fallback without hijacking IDs", () => {
+  const state = Core.normalizeState({settings:{language:'zh-TW'},channels:{'/@one':{name:'Unknown',channelId:'UCabcdefghijklmnopqrstuv'}},groups:[{id:'other',name:'My special group',channelIds:[]}]});
+  const next=Core.applyStateOperation(state,{type:'auto-classify',payload:{channelIds:['/channel/UCabcdefghijklmnopqrstuv']}});
+  assert.deepEqual(next.groups.find(group=>group.id==='other').channelIds,[]);
+  assert.deepEqual(next.groups.find(group=>group.name==='其他').channelIds,['/@one']);
+});
+
 test("favorite migration is idempotent, resolves aliases and drops missing records", () => {
   const old = { version: 14, channels: { "/@one": { name: "One", channelId: "UCabcdefghijklmnopqrstuv" } } };
   assert.deepEqual(Core.normalizeState(old).favoriteChannelIds, []);

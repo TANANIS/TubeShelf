@@ -119,32 +119,16 @@
           <div><span class="eyebrow">LOCAL ORGANIZER</span><h2>自動整理群組</h2></div>
           <button type="button" id="auto-close" class="close" aria-label="關閉">×</button>
         </div>
-        <div id="auto-intro" class="auto-step">
-          <div class="auto-hero">✦</div>
-          <h3>只分析尚未分類的頻道</h3>
-          <p>TubeShelf 會讀取公開頻道簡介與近期影片，透過細分類字典、重複主題與你之後的手動修正產生建議；若已設定 YouTube API Key，也會加入官方分類。既有群組不會被覆寫。</p>
-          <div class="auto-facts"><span>不使用雲端 AI</span><span>低信心也列入建議</span><span>確認後才套用</span></div>
-        </div>
-        <div id="auto-progress" class="auto-step" hidden>
+        <div id="auto-progress" class="auto-step">
           <div class="progress-ring"><span id="auto-percent">0%</span></div>
           <h3 id="auto-progress-title">正在準備本機分析</h3>
           <p id="auto-progress-copy">檢查已儲存的頻道資料…</p>
           <div class="progress-track"><span id="auto-progress-bar"></span></div>
         </div>
-        <div id="auto-results" class="auto-step" hidden>
-          <p>每個頻道只出現一次。選擇要加入的群組，或保留待分類。</p>
-          <div class="result-summary"><div><strong id="auto-result-count">0</strong><span>個頻道有分類建議</span></div><p id="auto-uncertain-count"></p></div>
-          <input id="auto-review-search" class="auto-review-search" type="search" placeholder="搜尋全部頻道" aria-label="搜尋全部頻道">
-          <div id="auto-suggestion-list" class="suggestion-list"></div>
-        </div>
-        <div id="auto-review-status" hidden>
-          <p id="auto-selection-summary" class="result-note" role="status"></p>
-          <p id="auto-save-error" role="status"></p>
-        </div>
+        <p id="auto-save-error" role="status"></p>
         <div class="dialog-actions auto-actions">
           <button id="auto-cancel" type="button" class="button ghost">取消</button>
-          <button id="auto-start" type="button" class="button smart">開始本機分析</button>
-          <button id="auto-apply" type="button" class="button primary" hidden>套用選擇</button>
+          <button id="auto-retry" type="button" class="button primary" hidden>重試自動分類</button>
         </div>
       </div>
     </dialog>
@@ -192,7 +176,6 @@
 
     <div id="toast" class="toast" role="status"></div>
     <script src="../shared.js"></script>
-    <script src="auto-review.js"></script>
     <script src="dashboard.js"></script>
   </body>
 </html>

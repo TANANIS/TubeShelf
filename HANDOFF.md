@@ -1,10 +1,18 @@
 # TubeShelf Handoff
 
 Updated: 2026-09-10
-Current extension version: **1.19.1 (testing)**
+Current extension version: **1.19.2 (testing)**
 Current state schema: **15**
 
-## 1.19.1 classification review
+## 1.19.2 direct classification
+
+User requested removal of the decision layer. Auto-organize now starts immediately, enriches available metadata, and commits all requested unfiled channels through the new background `auto-classify` operation. The strongest usable match becomes each channel's initial group; channels without a result go into Other/其他. Existing classifications stay intact, and users edit assignments afterward. The introductory confirmation and review UI/module/styles are removed. Cancellation during analysis prevents classification; failed saves offer retry; commit-time controls prevent misleading cancellation during the atomic write. Onboarding describes direct classification.
+
+Verification: **64/64** unit/static/background tests, seven JavaScript syntax checks, and all six browser harnesses pass. New cases cover low-confidence automatic assignments, one initial group per channel, localized fallback reuse without ID collisions, alias resolution, idempotence, excluded newly arriving channels, concurrent manual edits in the background queue, cancellation, save failure/retry and persistence in both languages. Synthetic completed-library screenshots `work/classification-direct-en.png` and `work/classification-direct-zh-TW.png` were inspected. Real installed-dashboard verification and the broader live Favorites/Shorts checks remain blocked by the browser tooling described below. No store upload or submission has been completed.
+
+Testing artifact: `outputs/TubeShelf-1.19.2.zip`; SHA-256 `eb414f8d4871ef435178e83e2b8937bdb37a6e812ec4ffec3a9904fc2522a385`. All 19 source, unpacked mirror, and ZIP entries match byte-for-byte. Earlier versioned archives remain intact.
+
+## 1.19.1 classification review history (superseded)
 
 Replaced repeated group-based checkbox cards with one row per unfiled channel, a primary destination selector, Leave unclassified, and a Use suggestion shortcut. Search retains selections outside the visible list. Reasons and extra group destinations are collapsed by default. The selected-channel/new-group count and save errors stay above the fixed Apply selections control. Incoming revisions and failed saves preserve pending choices; keyboard focus survives checkbox updates. Onboarding wording matches this flow.
 

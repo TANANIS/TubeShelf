@@ -32,22 +32,10 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
 
     await page.locator("#onboarding-skip").click();
     await page.locator("#auto-organize").click();
-    assert.match(await page.locator("#auto-dialog").innerText(), /No cloud AI/);
-    assert.doesNotMatch(await page.locator("#auto-dialog").innerText(), /[\u3400-\u9fff]/);
-    await page.locator("#auto-start").click();
-    await page.locator("#auto-results").waitFor({ state: "visible" });
-    const autoChrome = await page.locator("#auto-dialog").evaluate((dialog) => {
-      const clone = dialog.cloneNode(true);
-      clone.querySelectorAll("[translate=no], .auto-row-details").forEach((node) => node.remove());
-      return clone.innerText;
-    });
-    assert.match(autoChrome, /Each channel appears once/);
-    assert.match(autoChrome, /Suggestion/);
-    assert.doesNotMatch(autoChrome, /[\u3400-\u9fff]/);
-    assert.equal(await page.locator('[data-auto-primary="/@lofigirl"]').inputValue(),'');
-    assert.equal(await page.locator('[data-auto-primary="/@twreporter"]').inputValue(),'news');
-    assert.equal(await page.locator('[data-auto-primary="/@gamemakers"]').inputValue(),'');
-    await page.screenshot({path:'work/classification-review-en.png',fullPage:true});
+    await page.locator("#auto-dialog").waitFor({ state: "hidden" });
+    assert.equal(await page.locator("#auto-apply").count(), 0);
+    assert.equal(await page.locator("#stat-progress").innerText(), "100%");
+    assert.match(await page.locator("#toast").innerText(), /3 channels/);
 
     await page.goto("http://127.0.0.1:8766/extension/popup/popup.html?lang=en", { waitUntil: "networkidle" });
     assert.match(await page.locator("body").innerText(), /Your subscriptions, organized your way/);

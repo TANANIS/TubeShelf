@@ -40,7 +40,7 @@ The local automated checks pass: 46 unit/static/background tests plus UI, perfor
 
 Package SHA-256: `b012f4612c4dfbb29efb0acb1f21920c5ee77ae3c82fabd69df2bfc1d3e9a08e`.
 
-> **1.19.1 is in testing.** This includes Favorites, dashboard editing, improved classification, onboarding starter groups, and a simpler classification review: each channel appears once, with a destination selector and an explicit Leave unclassified option. Automated checks pass; installed-extension verification is incomplete, so the stable download remains 1.18.7.
+> **1.19.2 is in testing.** Auto-organize now classifies all unfiled channels immediately, without a review or confirmation step. Each channel gets its best matching group; channels without enough information go into Other. Existing classifications are preserved and every assignment remains editable. Automated checks pass; installed-extension verification is incomplete, so the stable download remains 1.18.7.
 
 ### Chrome
 
@@ -97,7 +97,7 @@ These controls are separate from subscription groups, so you can keep as much or
 
 ### Auto-organize locally
 
-TubeShelf can suggest groups for unclassified channels without sending your subscription library to a cloud AI service.
+TubeShelf can classify unfiled channels in one click without sending your subscription library to a cloud AI service.
 
 Suggestions can use:
 
@@ -108,7 +108,7 @@ Suggestions can use:
 - optional public YouTube topic/category metadata;
 - vocabulary learned from your own manual corrections.
 
-Low-confidence or conflicting results stay unclassified. Suggestions are shown before anything changes, and existing manual groups are never overwritten automatically.
+Auto-organize uses the strongest available result, including low-confidence matches. Channels without a usable result go into **Other**. Changes are saved immediately; you can adjust them afterward with the ordinary group editing controls. Existing classifications are never overwritten automatically.
 
 ### Private by default
 
@@ -142,21 +142,21 @@ See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
 2. Open TubeShelf from the browser toolbar and choose **Update subscriptions**.
 3. TubeShelf will load your subscribed channels and save the collected public channel information locally.
 4. Open **Manage groups**.
-5. Create groups manually, or run **Auto-organize groups (local)** for suggestions.
-6. Review each channel, choose its destination or leave it unclassified, then select **Apply selections**. Expand **Also add to other groups** only when a channel belongs in several places.
+5. Create groups manually, or select **Auto-organize groups (local)** to classify all unfiled channels immediately.
+6. Adjust any assignments afterward with **Details** or **Manage members**.
 7. Return to YouTube and switch shelves directly from the YouTube interface.
 
 You can also classify the channel you are currently watching from the **Groups** control beside its Subscribe button.
 
 ## How local classification works
 
-TubeShelf's classifier is deliberately conservative.
+TubeShelf's classifier ranks local signals to choose a destination for each unfiled channel.
 
 It scores signals such as channel descriptions, keywords, recent video titles, known topic phrases, exclusions, official YouTube categories, and vocabulary learned from manual group assignments.
 
-The highest-scoring result must also be sufficiently stronger than alternatives. Ambiguous results remain unclassified instead of being forced into a group.
+The highest-scoring usable result becomes the channel's initial group. Confidence still helps describe the result internally, but does not require a user decision. Channels without enough usable signals go into Other.
 
-Each channel appears once in the searchable review. High-confidence suggestions are preselected; other channels start with **Leave unclassified**. You can accept a suggestion or choose another destination. Reasons and additional group assignments are available in expandable sections. The footer shows the selected channel and new group counts. Search, incoming state updates, and failed saves preserve pending choices; nothing is saved until **Apply selections**.
+There is no initial classification review or confirmation step. The progress dialog closes after saving, and the updated groups appear immediately. Existing group editing supports corrections and multiple group memberships. A failed save offers retry, and cancellation during analysis prevents the classification commit.
 
 ## Optional: YouTube Data API
 
