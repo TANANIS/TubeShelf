@@ -1,10 +1,22 @@
 # TubeShelf Handoff
 
 Updated: 2026-09-10
-Current extension version: **1.19.0 (local package)**  
+Current extension version: **1.19.1 (testing)**
 Current state schema: **15**
 
-## Unreleased dashboard editing and favorites
+## 1.19.1 classification review
+
+Replaced repeated group-based checkbox cards with one row per unfiled channel, a primary destination selector, Leave unclassified, and a Use suggestion shortcut. Search retains selections outside the visible list. Reasons and extra group destinations are collapsed by default. The selected-channel/new-group count and save errors stay above the fixed Apply selections control. Incoming revisions and failed saves preserve pending choices; keyboard focus survives checkbox updates. Onboarding wording matches this flow.
+
+Verification: 61 unit/static/background tests, eight JavaScript syntax checks, and all six browser harnesses pass (`classification-smoke`, `ui-smoke`, `favorites-smoke`, `onboarding-smoke`, `performance-smoke`, `power-smoke`). Classification fixtures cover both languages, 390 px viewport bounds, no-suggestion channels, adopting/skipping suggestions, multiple destinations, search, external revisions, keyboard focus, failed-save retry, and reload persistence. Synthetic review screenshots were inspected.
+
+Live Edge: a full subscription scan populated the previously empty picker without a reload. Later, the current YouTube page showed 401 channels, 16 existing groups and Shorts hiding enabled. These observations do not complete live Favorites feed/Shorts or installed-dashboard validation. The browser connection subsequently failed with `Debugger unattached`. The dashboard URL was previously blocked by URL policy, and Chrome developer-console control reported `The extensions gallery cannot be scripted`. Do not claim store upload, draft save or submission. Finish signed-in runtime checks after browser control is restored; README continues to offer 1.18.7 as stable.
+
+The sections below are historical verification records and refer to the source/package state at the time they were written.
+
+Testing artifact: `outputs/TubeShelf-1.19.1.zip`; SHA-256 `db0d85faf18830710d4067895910b69ecc2cd647dfeffdd5b037bdc42ca9b820`. All 20 source, unpacked mirror, and ZIP entries match byte-for-byte. The prior 1.19.0 archive is preserved.
+
+## 1.19.0 dashboard editing and favorites history
 
 2026-09-10 follow-up: Favorites obeys the global Shorts setting. With Shorts hidden, the background parses only the selected public channel Videos tab, rejecting reel/Shorts cards and related shelves; failure never falls back to RSS. Mode-specific cache/pending keys and frontend generation invalidation prevent old RSS responses from reappearing after a toggle. The picker now supports search, group filtering and immediate follow/unfollow. A separate star beside Groups on channel/watch pages uses the same `edit-favorites` operation.
 

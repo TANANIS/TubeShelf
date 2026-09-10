@@ -63,6 +63,7 @@
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const currentLanguage = () => Core.languageCode(state.settings?.language);
   const t = (value) => Core.translateUiText(value, currentLanguage());
+  const autoReview = globalThis.createTubeShelfAutoReview({ getState: () => state, getSuggestions: () => autoSuggestions, translate: t, escape: escapeHtml });
   function localize(root = document) {
     document.documentElement.lang = currentLanguage() === "en" ? "en" : "zh-Hant";
     document.title = Core.translateUiText("TubeShelf 管理中心", currentLanguage());
@@ -113,10 +114,8 @@
     const groupDialog = $("group-dialog");
     if (groupDialog?.open && $("group-id").value && !state.groups.some((group) => group.id === $("group-id").value)) groupDialog.close();
     if ($("auto-dialog")?.open && !$("auto-results")?.hidden && !autoController) {
-      const choices = new Map([...document.querySelectorAll("[data-auto-channel]")].map((input) => [JSON.stringify([input.dataset.autoGroup, input.dataset.autoChannel]), input.checked]));
       autoSuggestions = Core.buildAutoGroupSuggestions(state);
       renderAutoResults();
-      document.querySelectorAll("[data-auto-channel]").forEach((input) => { const key = JSON.stringify([input.dataset.autoGroup, input.dataset.autoChannel]); if (choices.has(key)) input.checked = choices.get(key); });
     }
   }
 
@@ -496,6 +495,7 @@
     ["intro", "progress", "results"].forEach((step) => { $(`auto-${step}`).hidden = step !== name; });
     $("auto-start").hidden = name !== "intro";
     $("auto-apply").hidden = name !== "results";
+    $("auto-review-status").hidden = name !== "results";
     $("auto-cancel").textContent = name === "results" ? "關閉" : "取消";
     localize($("auto-dialog"));
   }
@@ -512,26 +512,14 @@
   function renderAutoResults() {
     $("auto-save-error").textContent = "";
     const suggestedCount = new Set(autoSuggestions.groups.flatMap((group) => group.channelIds)).size;
-    const stats = autoSuggestions.stats || { high: 0, medium: 0, low: 0, official: 0, personal: 0, dictionary: 0 };
     $("auto-result-count").textContent = suggestedCount;
     $("auto-uncertain-count").textContent = autoSuggestions.uncertain.length ? `${autoSuggestions.uncertain.length} 個頻道因資訊不足或分類衝突而保留待分類` : "所有待分類頻道都有分類建議";
-    $("auto-confidence-summary").innerHTML = `<span>高信心 <strong>${stats.high}</strong></span><span>中信心 <strong>${stats.medium}</strong></span><span>低信心建議 <strong>${stats.low}</strong></span><span>本機字典 <strong>${stats.dictionary}</strong></span><span>YouTube 官方訊號 <strong>${stats.official}</strong></span><span>個人詞彙 <strong>${stats.personal}</strong></span>`;
-    $("auto-suggestion-list").innerHTML = autoSuggestions.groups.length
-      ? autoSuggestions.groups.map((group) => {
-          const english = currentLanguage() === "en";
-          const high = group.channels.filter((channel) => channel.confidence === "high").length;
-          const medium = group.channels.filter((channel) => channel.confidence === "medium").length;
-          const low = group.channels.filter((channel) => channel.confidence === "low").length;
-          const confidence = english ? `High ${high} · Medium ${medium} · Low ${low}` : `高 ${high}・中 ${medium}・低 ${low}`;
-          const rows = group.channels.map((channel) => `<label class="suggestion-card"><input type="checkbox" data-auto-group="${escapeHtml(group.groupId)}" data-auto-channel="${escapeHtml(channel.id)}" data-confidence="${channel.confidence}" ${channel.confidence === "high" ? "checked" : ""}><span class="suggestion-copy"><strong><span translate="no">${escapeHtml(channel.name)}</span> <span class="confidence">${english ? { high: "High", medium: "Medium", low: "Low" }[channel.confidence] : { high: "高", medium: "中", low: "低" }[channel.confidence]}</span></strong><small>${escapeHtml(channel.reasons.join(english ? " · " : "・"))}</small></span></label>`).join("");
-          return `<section class="suggestion-group"><h3><span style="color:${group.color}">${Core.iconSvg(group.icon, "currentColor", 17)}</span> <span translate="no">${escapeHtml(group.name)}</span> <span class="confidence">${confidence}</span></h3>${rows}</section>`;
-        }).join("")
-      : `<div class="empty-state"><strong>目前沒有足夠明確的分類建議</strong><p>既有群組不會受到影響；資訊不足的頻道會繼續留在待分類。</p></div>`;
-    $("auto-apply").disabled = !autoSuggestions.groups.length;
+    autoReview.render();
     showAutoStep("results");
   }
 
   async function startAutoOrganize() {
+    autoReview.reset();
     const unfiledIds = new Set(Core.unfiledChannelIds(state));
     const unfiled = Object.values(state.channels).filter((channel) => unfiledIds.has(channel.id)).map((channel) => structuredClone(channel));
     if (!unfiled.length) { toast(Object.keys(state.channels).length ? "目前沒有尚未分類的頻道" : "請先更新訂閱內容"); return; }
@@ -623,7 +611,7 @@
   const ONBOARDING_STEPS = [
     { icon: "✦", title: "歡迎使用 TubeShelf", copy: "這份教學會陪你完成第一次更新、第一次本機自動整理，以及日後手動管理群組的方法。所有資料只留在這台裝置。", action: "開始教學" },
     { icon: "↻", title: "先建立你的訂閱書架", copy: "按下「更新訂閱內容」後，TubeShelf 會開啟 YouTube 的所有訂閱頁並自動載入完整清單。完成後這個頁面會立即顯示頻道。", target: "#update-subscriptions", action: "更新訂閱內容" },
-    { icon: "✦", title: "第一次自動整理", copy: "自動整理只分析未分類頻道，先提出可勾選的建議；直到你按下「套用建議」才會修改群組。", target: "#auto-organize", action: "開啟自動整理" },
+    { icon: "✦", title: "第一次自動整理", copy: "先為每個待分類頻道選擇群組，或保留待分類；按下「套用選擇」才會儲存。", target: "#auto-organize", action: "開啟自動整理" },
     { icon: "▦", title: "檢查並手動調整", copy: "選擇左側群組即可查看真正成員。點頻道卡片可看詳細資料；使用「管理成員」可批次加入或移出，也能用「新增群組」建立自己的分類。", target: ".group-pane", action: "下一步" },
     { icon: "⌁", title: "依喜好整理 YouTube", copy: "偏好設定可以封鎖首頁、關閉 Shorts、隱藏影片右欄、關閉自動播放與隱藏已觀看影片；下方也能匯出或匯入備份。", target: ".settings-grid", action: "下一步" },
     { icon: "✓", title: "準備完成", copy: "回到 YouTube 訂閱內容後，可從左側 TubeShelf 群組或頁面上方快速切換。齒輪會直接開啟完整面板。", action: "完成" }
@@ -892,8 +880,7 @@
     renderOnboarding();
   });
   $("auto-apply").addEventListener("click", async () => {
-    const selected = new Set([...document.querySelectorAll("[data-auto-channel]:checked")].map((input) => JSON.stringify([input.dataset.autoGroup, input.dataset.autoChannel])));
-    const groups = autoSuggestions.groups.map((group) => ({ ...group, channelIds: group.channelIds.filter((id) => selected.has(JSON.stringify([group.groupId, id]))) })).filter((group) => group.channelIds.length);
+    const groups = autoReview.selectedGroups();
     if (!groups.length) { toast("請至少選擇一個分類建議"); return; }
     const beforeCount = Core.unfiledChannelIds(state).length;
     $("auto-apply").disabled = true;
@@ -902,7 +889,7 @@
       toast(`已整理 ${Math.max(0, beforeCount - Core.unfiledChannelIds(state).length)} 個頻道`);
       $("auto-dialog").close();
     } catch (_) { $("auto-save-error").textContent = t("儲存失敗，請重試。"); }
-    finally { $("auto-apply").disabled = !autoSuggestions.groups.length; }
+    finally { $("auto-apply").disabled = !autoReview.selectedGroups().length; }
   });
   document.querySelectorAll("[data-setting]").forEach((input) => input.addEventListener("change", async () => {
     await commit({ type: "set-setting", payload: { setting: input.dataset.setting, enabled: input.checked } }, input.dataset.setting === "hideSecondary" && input.checked ? "已隱藏影片右側欄，並關閉自動播放" : "設定已儲存");

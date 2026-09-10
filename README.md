@@ -40,7 +40,7 @@ The local automated checks pass: 46 unit/static/background tests plus UI, perfor
 
 Package SHA-256: `b012f4612c4dfbb29efb0acb1f21920c5ee77ae3c82fabd69df2bfc1d3e9a08e`.
 
-> **1.19.0 is in testing.** The Favorites view, dashboard editing, improved classification, and onboarding starter groups are built and pass automated checks, but are not yet offered as the stable download.
+> **1.19.1 is in testing.** This includes Favorites, dashboard editing, improved classification, onboarding starter groups, and a simpler classification review: each channel appears once, with a destination selector and an explicit Leave unclassified option. Automated checks pass; installed-extension verification is incomplete, so the stable download remains 1.18.7.
 
 ### Chrome
 
@@ -143,7 +143,7 @@ See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
 3. TubeShelf will load your subscribed channels and save the collected public channel information locally.
 4. Open **Manage groups**.
 5. Create groups manually, or run **Auto-organize groups (local)** for suggestions.
-6. Review the suggestions and apply only the groups you want.
+6. Review each channel, choose its destination or leave it unclassified, then select **Apply selections**. Expand **Also add to other groups** only when a channel belongs in several places.
 7. Return to YouTube and switch shelves directly from the YouTube interface.
 
 You can also classify the channel you are currently watching from the **Groups** control beside its Subscribe button.
@@ -156,7 +156,7 @@ It scores signals such as channel descriptions, keywords, recent video titles, k
 
 The highest-scoring result must also be sufficiently stronger than alternatives. Ambiguous results remain unclassified instead of being forced into a group.
 
-The UI shows classification confidence and the signals behind a suggestion so that the result can be inspected before being applied.
+Each channel appears once in the searchable review. High-confidence suggestions are preselected; other channels start with **Leave unclassified**. You can accept a suggestion or choose another destination. Reasons and additional group assignments are available in expandable sections. The footer shows the selected channel and new group counts. Search, incoming state updates, and failed saves preserve pending choices; nothing is saved until **Apply selections**.
 
 ## Optional: YouTube Data API
 

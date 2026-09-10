@@ -18,7 +18,8 @@ const {chromium}=require(path.join(process.env.TUBESHELF_NODE_MODULES,'playwrigh
             '/@filed':{name:'Existing choice',description:'Cooking'},
             '/@strong':{name:'Music Studio',description:'Music piano',recentTitles:['Music lesson one','Music lesson two','Music lesson three']},
             '/@weak':{name:'Quiet creator',description:'Music'},
-            '/@mixed':{name:'Mixed creator',description:'Music piano cooking recipe'}
+            '/@mixed':{name:'Mixed creator',description:'Music piano cooking recipe'},
+            '/@unknown':{name:'Unclear creator',description:''}
           },manualLabels:{'/@filed':['music-custom']}
         };
         Object.values(state.channels).forEach(channel=>{channel.profileVersion=5;channel.profiledAt=Date.now();});
@@ -34,25 +35,42 @@ const {chromium}=require(path.join(process.env.TUBESHELF_NODE_MODULES,'playwrigh
       await page.locator('#auto-organize').click();
       await page.locator('#auto-start').click();
       await page.locator('#auto-results').waitFor({state:'visible'});
-      assert.equal(await page.locator('[data-auto-channel="/@filed"]').count(),0);
-      const strong=page.locator('[data-auto-channel="/@strong"]');
-      assert.equal(await strong.isChecked(),true);
-      assert.equal(await page.locator('[data-auto-channel="/@weak"]').isChecked(),false);
-      assert.equal(await page.locator('[data-auto-channel="/@mixed"]').count(),2);
-      await strong.uncheck();
-      for(const input of await page.locator('[data-auto-channel="/@mixed"]').all()) await input.check();
+      assert.equal(await page.locator('[data-review-channel="/@filed"]').count(),0);
+      const strong=page.locator('[data-auto-primary="/@strong"]');
+      assert.equal(await strong.inputValue(),'music-custom');
+      assert.equal(await page.locator('[data-auto-primary="/@weak"]').inputValue(),'');
+      assert.equal(await page.locator('[data-review-channel="/@mixed"]').count(),1);
+      assert.equal(await page.locator('[data-auto-primary="/@unknown"]').inputValue(),'');
+      await page.locator('[data-adopt="/@weak"]').click();
+      assert.equal(await page.locator('[data-auto-primary="/@weak"]').inputValue(),'music-custom');
+      await page.locator('[data-auto-primary="/@weak"]').selectOption('');
+      await strong.selectOption('');
+      await page.locator('[data-auto-primary="/@mixed"]').selectOption('music-custom');
+      await page.locator('[data-review-details="extra:/@mixed"] summary').click();
+      await page.locator('[data-extra-channel="/@mixed"][value="food"]').check();
+      assert.equal(await page.locator('[data-extra-channel="/@mixed"][value="food"]').evaluate(node=>node===document.activeElement),true);
       await page.evaluate(()=>{const next=structuredClone(__state());next.revision++;next.settings.hideShorts=true;__change(next);});
-      assert.equal(await strong.isChecked(),false);
-      for(const input of await page.locator('[data-auto-channel="/@mixed"]').all()) assert.equal(await input.isChecked(),true);
+      assert.equal(await strong.inputValue(),'');
+      assert.equal(await page.locator('[data-auto-primary="/@mixed"]').inputValue(),'music-custom');
+      assert.equal(await page.locator('[data-extra-channel="/@mixed"][value="food"]').isChecked(),true);
+      await page.locator('#auto-review-search').fill('Mixed');
+      assert.equal(await page.locator('[data-review-channel]').count(),1);
+      await page.locator('#auto-review-search').fill('');
       // Stored group names are content, including in English UI.
-      assert.ok((await page.locator('.suggestion-group h3 [translate=no]').allTextContents()).includes('音樂'));
-      assert.ok(await page.locator('.suggestion-copy').first().evaluate(node=>node.getBoundingClientRect().width>300));
+      assert.equal(await page.locator('[data-auto-primary="/@mixed"] option:checked').textContent(),'音樂');
+      assert.ok(await page.locator('.auto-channel-heading').first().evaluate(node=>node.getBoundingClientRect().width>300));
       assert.ok(await page.locator('#auto-apply').evaluate(node=>node.getBoundingClientRect().bottom<=innerHeight));
+      assert.ok(await page.locator('#auto-selection-summary').evaluate(node=>node.getBoundingClientRect().bottom<=innerHeight));
+      await page.setViewportSize({width:390,height:700});
+      assert.ok(await page.locator('#auto-dialog').evaluate(node=>node.getBoundingClientRect().right<=innerWidth));
+      assert.ok(await page.locator('#auto-apply').evaluate(node=>node.getBoundingClientRect().bottom<=innerHeight));
+      await page.setViewportSize({width:1280,height:850});
       await page.screenshot({path:`work/classification-selection-${language}.png`,fullPage:true});
       await page.evaluate(()=>{__failSave=true;});
       await page.locator('#auto-apply').click();
       await page.waitForFunction(()=>document.querySelector('#auto-save-error').textContent.length>0);
-      for(const input of await page.locator('[data-auto-channel="/@mixed"]').all()) assert.equal(await input.isChecked(),true);
+      assert.equal(await page.locator('[data-auto-primary="/@mixed"]').inputValue(),'music-custom');
+      assert.equal(await page.locator('[data-extra-channel="/@mixed"][value="food"]').isChecked(),true);
       assert.equal(await page.evaluate(()=>__state().groups.length),1);
       await page.evaluate(()=>{__failSave=false;});
       await page.locator('#auto-apply').click();

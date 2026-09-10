@@ -38,15 +38,15 @@ const { chromium } = require(path.join(process.env.TUBESHELF_NODE_MODULES, "play
     await page.locator("#auto-results").waitFor({ state: "visible" });
     const autoChrome = await page.locator("#auto-dialog").evaluate((dialog) => {
       const clone = dialog.cloneNode(true);
-      clone.querySelectorAll(".suggestion-copy").forEach((node) => node.remove());
+      clone.querySelectorAll("[translate=no], .auto-row-details").forEach((node) => node.remove());
       return clone.innerText;
     });
-    assert.match(autoChrome, /Local dictionary/);
-    assert.match(autoChrome, /Low \d+/);
+    assert.match(autoChrome, /Each channel appears once/);
+    assert.match(autoChrome, /Suggestion/);
     assert.doesNotMatch(autoChrome, /[\u3400-\u9fff]/);
-    const suggestionChecks = page.locator('[data-auto-channel]');
-    assert.ok(await suggestionChecks.count() > 0);
-    for (let index = 0; index < await suggestionChecks.count(); index += 1) assert.equal(await suggestionChecks.nth(index).isChecked(), await suggestionChecks.nth(index).getAttribute('data-confidence') === 'high');
+    assert.equal(await page.locator('[data-auto-primary="/@lofigirl"]').inputValue(),'');
+    assert.equal(await page.locator('[data-auto-primary="/@twreporter"]').inputValue(),'news');
+    assert.equal(await page.locator('[data-auto-primary="/@gamemakers"]').inputValue(),'');
     await page.screenshot({path:'work/classification-review-en.png',fullPage:true});
 
     await page.goto("http://127.0.0.1:8766/extension/popup/popup.html?lang=en", { waitUntil: "networkidle" });

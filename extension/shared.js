@@ -19,6 +19,10 @@
     "新增所選群組": "Add selected groups", "請先勾選群組": "Select a group first", "群組已新增": "Groups added",
     "逐一確認頻道建議；僅高信心預先勾選。同一頻道可選多個群組。": "Review each channel. Only high-confidence suggestions are preselected. You can choose multiple groups for a channel.",
     "只有按下「套用建議」才會儲存已勾選的頻道分類。": "Selected channel assignments are saved only after you click Apply suggestions.",
+    "每個頻道只出現一次。選擇要加入的群組，或保留待分類。": "Each channel appears once. Choose a destination group or leave it unclassified.",
+    "保留待分類": "Leave unclassified", "採用": "Use suggestion", "加入群組": "Assign to", "套用選擇": "Apply selections",
+    "查看原因": "Why this suggestion", "同時加入其他群組": "Also add to other groups",
+    "先為每個待分類頻道選擇群組，或保留待分類；按下「套用選擇」才會儲存。": "Choose a group for each unclassified channel, or leave it unclassified. Changes are saved only after you click Apply selections.",
     "從已收集頻道中挑選": "Choose from your collected channels", "儲存變更": "Save changes", "取消編輯": "Cancel editing",
     "勾選頻道後按儲存；取消不會修改群組。": "Select channels, then save. Cancel leaves the group unchanged.",
     "點擊頻道可查看詳細資料與分類。": "Open a channel to view its details and groups.",
@@ -1028,10 +1032,12 @@
     const learnedProfiles = buildLearnedProfiles(current);
     const suggestions = new Map();
     const uncertain = [];
+    const channels = [];
     const stats = { high: 0, medium: 0, low: 0, official: 0, personal: 0, dictionary: 0 };
     for (const channel of Object.values(current.channels)) {
       if (filed.has(channel.id)) continue;
       const result = classifyChannel(channel, current, learnedProfiles);
+      channels.push({ id: channel.id, name: channel.name, candidates: result ? [result, ...result.alternatives] : [] });
       if (!result) { uncertain.push(channel.id); continue; }
       stats[result.confidence] += 1;
       result.sources.forEach((source) => { if (source in stats) stats[source] += 1; });
@@ -1042,7 +1048,7 @@
         target.channels.push({ id: channel.id, name: channel.name, reasons: candidate.reasons, confidence: candidate.confidence, score: candidate.score, margin: candidate.margin, tags: candidate.tags, sources: candidate.sources });
       }
     }
-    return { groups: [...suggestions.values()], uncertain, stats, learnedProfileCount: learnedProfiles.length };
+    return { groups: [...suggestions.values()], channels, uncertain, stats, learnedProfileCount: learnedProfiles.length };
   }
 
   function recordManualMembership(state, channelId, groupId, enabled) {
